@@ -3,12 +3,15 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - Obstacle
+  - OutOfBounds
+  - Road
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Road
   - Water
   - UI
   - 

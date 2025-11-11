@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UI; // 레거시 UI(Text)를 사용하기 위해 필요합니다.
 
 public class PlayerController : MonoBehaviour
 {
@@ -10,14 +10,15 @@ public class PlayerController : MonoBehaviour
     private List<CommandType> commandList = new List<CommandType>();
 
     // --- UI 참조 변수 ---
-    [Header("UI 연결")]
-    public Text commandSequenceText;
-    public GameObject successPanel;
+    [Header("UI 연결 (자동 연결됨)")]
+    // (UI_Auto_Connector가 자동으로 연결해 줌)
+    private Text commandSequenceText;
+    private GameObject successPanel;
 
     // --- 오브젝트 참조 변수 ---
-    [Header("오브젝트 연결")]
-    public GameObject startBox;
-    public GameObject endPoint;
+    [Header("오브젝트 연결 (씬마다 수동 연결)")]
+    public GameObject startBox; // 씬마다 연결 필요
+    public GameObject endPoint; // 씬마다 연결 필요
 
     // --- 플레이어 상태 변수 ---
     private Vector3 startPosition;
@@ -35,8 +36,8 @@ public class PlayerController : MonoBehaviour
 
     // --- 땅 감지(Raycast) 설정 ---
     [Header("땅 감지 설정")]
-    public LayerMask roadLayer; // "Road" 레이어를 감지하기 위한 설정
-    public float groundCheckDistance = 2.0f; // 플레이어 발밑 2.0f 거리까지 "Road"를 찾음
+    public LayerMask roadLayer; // 인스펙터에서 "Road" 레이어 선택
+    public float groundCheckDistance = 2.0f;
 
     // --- 태그 설정 ---
     [Header("태그 이름 (문자열)")]
@@ -45,15 +46,38 @@ public class PlayerController : MonoBehaviour
 
     void Start()
     {
+        // 1. 시작 위치 계산 및 저장
+        // (startBox가 public이므로 연결되어 있어야 함)
         startPosition = new Vector3(
             startBox.transform.position.x,
             startBox.transform.position.y + 1.7f,
             startBox.transform.position.z
         );
+
+        // 2. 시작 회전값 저장
         startRotation = transform.rotation;
 
+        // 3. 위치만 초기화 (UI 관련 초기화는 InitializeUI에서 수행)
+        transform.position = startPosition;
+        transform.rotation = startRotation;
+
+        // (중요) ResetPlayer()는 UI가 연결된 후 InitializeUI()에서 호출됩니다.
+    }
+
+    /// <summary>
+    /// (새로 추가된 함수)
+    /// UI_Auto_Connector가 이 함수를 호출하여 UI 요소들을 주입합니다.
+    /// </summary>
+    public void InitializeUI(Text cmdText, GameObject successPnl)
+    {
+        // 1. UI 참조를 전달받습니다.
+        this.commandSequenceText = cmdText;
+        this.successPanel = successPnl;
+
+        // 2. UI 참조가 확정된 이 시점에, UI를 사용하는 초기화 함수를 호출합니다.
         ResetPlayer();
     }
+
 
     #region 1. 버튼 연결 함수 (UI에서 호출)
 
@@ -97,9 +121,6 @@ public class PlayerController : MonoBehaviour
     // 땅(Road 레이어) 위에 있는지 확인하는 함수
     bool IsGrounded()
     {
-        // 플레이어 위치(transform.position)에서 아래(Vector3.down)로
-        // groundCheckDistance 만큼 레이저를 쏴서
-        // roadLayer와 부딪히는지 확인
         return Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, roadLayer);
     }
 
@@ -107,12 +128,11 @@ public class PlayerController : MonoBehaviour
     {
         isExecuting = true;
 
-        // (수정) 실행 시작 시점에 땅(Road) 위에 있는지 먼저 확인
         if (!IsGrounded())
         {
             Debug.Log("시작 지점이 'Road' 레이어 위에 있지 않습니다!");
             ResetPlayer();
-            yield break; // 실행 중지
+            yield break;
         }
 
         foreach (CommandType cmd in commandList)
@@ -130,29 +150,20 @@ public class PlayerController : MonoBehaviour
                     break;
             }
 
-            yield return new WaitForSeconds(0.1f); // 동작이 끝날 시간을 줌
+            yield return new WaitForSeconds(0.1f);
 
-            // --- (중요) 수정된 길 벗어남 감지 ---
-            // 매 동작이 끝난 후, 발밑에 "Road" 레이어가 있는지 확인
             if (!IsGrounded())
             {
                 Debug.Log("길을 벗어났습니다! (Raycast 실패)");
-
-                // (선택 사항) 떨어지는 연출을 위해 잠시 대기
-                // yield return new WaitForSeconds(0.5f); 
-
-                ResetPlayer(); // 플레이어 리셋
-                yield break;  // 코루틴(명령 실행) 즉시 중단
+                ResetPlayer();
+                yield break;
             }
         }
 
         isExecuting = false;
-
-        // 모든 명령이 끝나고도 길 위에 있다면 성공 체크
         CheckForWin();
     }
 
-    // ... (MoveForward, Turn 함수는 이전과 동일) ...
     IEnumerator MoveForward()
     {
         RaycastHit hit;
@@ -211,12 +222,12 @@ public class PlayerController : MonoBehaviour
 
     #region 3. 상태 관리 및 UI/충돌 처리
 
-    // (수정) 텍스트가 안 나올 경우를 대비해 switch-case 문 포함
     private void UpdateCommandText()
     {
+        // UI가 아직 연결되기 전에 호출될 수 있으므로 확인
         if (commandSequenceText == null)
         {
-            Debug.LogWarning("Command Sequence Text가 연결되지 않았습니다!");
+            // Debug.LogWarning("Command Sequence Text가 아직 연결되지 않았습니다.");
             return;
         }
 
@@ -265,19 +276,18 @@ public class PlayerController : MonoBehaviour
         isExecuting = false;
         transform.position = startPosition;
         transform.rotation = startRotation;
-        if (successPanel != null) successPanel.SetActive(false);
+
+        // (수정) null 조건부 연산자 '?' 추가
+        // UI가 연결되기 전(Start)이나 연결 실패 시에도 오류가 나지 않도록 함
+        successPanel?.SetActive(false);
     }
 
     private void ResetPlayer()
     {
-        ResetPlayerPosition();
+        ResetPlayerPosition(); // 위치, 회전 리셋
         commandList.Clear();
-        UpdateCommandText();
+        UpdateCommandText(); // UI 텍스트 초기화
     }
-
-    // --- (삭제) ---
-    // OnTriggerEnter, OnTriggerExit, isOnRoad 변수 등은
-    // 모두 삭제되었습니다. (더 이상 필요 없음)
 
     #endregion
 }

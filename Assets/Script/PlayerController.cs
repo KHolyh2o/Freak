@@ -50,7 +50,7 @@ public class PlayerController : MonoBehaviour
         // (startBox가 public이므로 연결되어 있어야 함)
         startPosition = new Vector3(
             startBox.transform.position.x,
-            startBox.transform.position.y + 1.7f,
+            startBox.transform.position.y + 1.33f,
             startBox.transform.position.z
         );
 

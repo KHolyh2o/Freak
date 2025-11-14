@@ -11,14 +11,20 @@ public class PlayerController : MonoBehaviour
 
     // --- UI 참조 변수 ---
     [Header("UI 연결 (자동 연결됨)")]
-    // (UI_Auto_Connector가 자동으로 연결해 줌)
-    private Text commandSequenceText;
-    private GameObject successPanel;
+    private GameObject commandSequencePanel; // (UI_Auto_Connector가 연결)
+    private GameObject commandSlotPrefab;    // (UI_Auto_Connector가 연결)
+    private GameObject successPanel;         // (UI_Auto_Connector가 연결)
+
+    // --- 명령 아이콘 스프라이트 ---
+    [Header("명령 아이콘 스프라이트 (수동 연결)")]
+    public Sprite forwardIcon; // (Player_Root의 인스펙터에서 연결 필요)
+    public Sprite rightIcon;   // (Player_Root의 인스펙터에서 연결 필요)
+    public Sprite leftIcon;    // (Player_Root의 인스펙터에서 연결 필요)
 
     // --- 오브젝트 참조 변수 ---
     [Header("오브젝트 연결 (씬마다 수동 연결)")]
-    public GameObject startBox; // 씬마다 연결 필요
-    public GameObject endPoint; // 씬마다 연결 필요
+    public GameObject startBox; // (Player_Root의 인스펙터에서 연결 필요)
+    public GameObject endPoint; // (연결은 되어있지만, 이제 충돌 감지용으로 사용됨)
 
     // --- 플레이어 상태 변수 ---
     private Vector3 startPosition;
@@ -36,7 +42,7 @@ public class PlayerController : MonoBehaviour
 
     // --- 땅 감지(Raycast) 설정 ---
     [Header("땅 감지 설정")]
-    public LayerMask roadLayer; // 인스펙터에서 "Road" 레이어 선택
+    public LayerMask roadLayer; // (Player_Root의 인스펙터에서 "Road" 선택 필요)
     public float groundCheckDistance = 2.0f;
 
     // --- 태그 설정 ---
@@ -46,35 +52,35 @@ public class PlayerController : MonoBehaviour
 
     void Start()
     {
-        // 1. 시작 위치 계산 및 저장
-        // (startBox가 public이므로 연결되어 있어야 함)
+        // 1. startBox가 연결되어 있는지 확인
+        if (startBox == null)
+        {
+            Debug.LogError("StartBox가 PlayerController에 연결되지 않았습니다!");
+            return;
+        }
+
+        // 2. 시작 위치 계산 및 저장
         startPosition = new Vector3(
             startBox.transform.position.x,
             startBox.transform.position.y + 1.33f,
             startBox.transform.position.z
         );
-
-        // 2. 시작 회전값 저장
         startRotation = transform.rotation;
 
-        // 3. 위치만 초기화 (UI 관련 초기화는 InitializeUI에서 수행)
         transform.position = startPosition;
         transform.rotation = startRotation;
-
-        // (중요) ResetPlayer()는 UI가 연결된 후 InitializeUI()에서 호출됩니다.
     }
 
     /// <summary>
-    /// (새로 추가된 함수)
     /// UI_Auto_Connector가 이 함수를 호출하여 UI 요소들을 주입합니다.
     /// </summary>
-    public void InitializeUI(Text cmdText, GameObject successPnl)
+    public void InitializeUI(GameObject cmdPanel, GameObject cmdSlotPfb, GameObject successPnl)
     {
-        // 1. UI 참조를 전달받습니다.
-        this.commandSequenceText = cmdText;
+        this.commandSequencePanel = cmdPanel;
+        this.commandSlotPrefab = cmdSlotPfb;
         this.successPanel = successPnl;
 
-        // 2. UI 참조가 확정된 이 시점에, UI를 사용하는 초기화 함수를 호출합니다.
+        // UI가 모두 준비된 후 플레이어 초기화
         ResetPlayer();
     }
 
@@ -85,21 +91,21 @@ public class PlayerController : MonoBehaviour
     {
         if (isExecuting) return;
         commandList.Add(CommandType.Forward);
-        UpdateCommandText();
+        UpdateCommandIcons(); // 이름 변경 (UpdateCommandText -> UpdateCommandIcons)
     }
 
     public void AddCommand_TurnRight()
     {
         if (isExecuting) return;
         commandList.Add(CommandType.TurnRight);
-        UpdateCommandText();
+        UpdateCommandIcons();
     }
 
     public void AddCommand_TurnLeft()
     {
         if (isExecuting) return;
         commandList.Add(CommandType.TurnLeft);
-        UpdateCommandText();
+        UpdateCommandIcons();
     }
 
     public void ExecuteCommands()
@@ -135,8 +141,13 @@ public class PlayerController : MonoBehaviour
             yield break;
         }
 
+        int currentCommandIndex = 0;
+
         foreach (CommandType cmd in commandList)
         {
+            // 명령 실행 전 하이라이트
+            HighlightCommandIcon(currentCommandIndex, true);
+
             switch (cmd)
             {
                 case CommandType.Forward:
@@ -152,6 +163,16 @@ public class PlayerController : MonoBehaviour
 
             yield return new WaitForSeconds(0.1f);
 
+            // 명령 실행 후 하이라이트 해제
+            HighlightCommandIcon(currentCommandIndex, false);
+            currentCommandIndex++;
+
+            // (중요) isExecuting가 false가 되었는지 매번 확인 (성공 시 즉시 중단)
+            if (!isExecuting)
+            {
+                yield break; // OnTriggerEnter에서 성공하여 실행이 중지됨
+            }
+
             if (!IsGrounded())
             {
                 Debug.Log("길을 벗어났습니다! (Raycast 실패)");
@@ -161,7 +182,8 @@ public class PlayerController : MonoBehaviour
         }
 
         isExecuting = false;
-        CheckForWin();
+
+        // (삭제됨) 좌표 기반의 CheckForWin() 호출 삭제
     }
 
     IEnumerator MoveForward()
@@ -222,71 +244,114 @@ public class PlayerController : MonoBehaviour
 
     #region 3. 상태 관리 및 UI/충돌 처리
 
-    private void UpdateCommandText()
+    /// <summary>
+    /// 명령 순서 UI를 아이콘으로 업데이트합니다.
+    /// </summary>
+    private void UpdateCommandIcons()
     {
-        // UI가 아직 연결되기 전에 호출될 수 있으므로 확인
-        if (commandSequenceText == null)
+        if (commandSequencePanel == null || commandSlotPrefab == null)
         {
-            // Debug.LogWarning("Command Sequence Text가 아직 연결되지 않았습니다.");
             return;
         }
 
-        string text = "명령 순서: ";
-        if (commandList.Count == 0)
+        // 1. 기존 아이콘 모두 삭제
+        foreach (Transform child in commandSequencePanel.transform)
         {
-            text += "(명령을 추가하세요)";
+            Destroy(child.gameObject);
         }
-        else
+
+        // 2. 리스트 기반으로 아이콘 새로 생성
+        foreach (CommandType cmd in commandList)
         {
-            foreach (CommandType cmd in commandList)
+            GameObject commandSlot = Instantiate(commandSlotPrefab, commandSequencePanel.transform);
+            Image slotImage = commandSlot.GetComponent<Image>();
+
+            if (slotImage != null)
             {
                 switch (cmd)
                 {
                     case CommandType.Forward:
-                        text += "전진 → ";
+                        slotImage.sprite = forwardIcon;
                         break;
                     case CommandType.TurnRight:
-                        text += "우회전 ↻ ";
+                        slotImage.sprite = rightIcon;
                         break;
                     case CommandType.TurnLeft:
-                        text += "좌회전 ↺ ";
+                        slotImage.sprite = leftIcon;
                         break;
                 }
+                slotImage.color = (slotImage.sprite != null) ? Color.white : Color.gray;
             }
         }
-        commandSequenceText.text = text;
     }
 
-    private void CheckForWin()
+    /// <summary>
+    /// 실행 중인 명령 아이콘을 하이라이트합니다.
+    /// </summary>
+    private void HighlightCommandIcon(int index, bool highlight)
     {
-        if (endPoint == null || successPanel == null) return;
-        Vector3 playerPosXZ = new Vector3(transform.position.x, 0, transform.position.z);
-        Vector3 endPointPosXZ = new Vector3(endPoint.transform.position.x, 0, endPoint.transform.position.z);
-
-        if (Vector3.Distance(playerPosXZ, endPointPosXZ) < 0.1f)
+        if (commandSequencePanel == null || index < 0 || index >= commandSequencePanel.transform.childCount)
         {
-            Debug.Log("성공!");
-            successPanel.SetActive(true);
+            return;
+        }
+
+        Transform commandIconTransform = commandSequencePanel.transform.GetChild(index);
+        Image iconImage = commandIconTransform.GetComponent<Image>();
+
+        if (iconImage != null)
+        {
+            iconImage.color = highlight ? Color.yellow : Color.white;
+            // iconImage.transform.localScale = highlight ? Vector3.one * 1.2f : Vector3.one;
         }
     }
+
+    // (★삭제됨★) 
+    // private void CheckForWin() { ... } 
+    // -> 함수 자체가 필요 없음
 
     private void ResetPlayerPosition()
     {
-        StopAllCoroutines();
+        StopAllCoroutines(); // 진행 중인 모든 명령(이동) 중지
         isExecuting = false;
         transform.position = startPosition;
         transform.rotation = startRotation;
 
-        // (수정) null 조건부 연산자 '?' 추가
-        // UI가 연결되기 전(Start)이나 연결 실패 시에도 오류가 나지 않도록 함
-        successPanel?.SetActive(false);
+        successPanel?.SetActive(false); // successPanel이 null이 아니면 비활성화
     }
 
     private void ResetPlayer()
     {
-        ResetPlayerPosition(); // 위치, 회전 리셋
+        ResetPlayerPosition();
         commandList.Clear();
-        UpdateCommandText(); // UI 텍스트 초기화
+        UpdateCommandIcons(); // UI 아이콘 초기화
+    }
+
+    /// <summary>
+    /// (★핵심★)
+    /// 플레이어의 콜라이더가 다른 '트리거(Trigger)' 콜라이더에 '진입(Enter)'했을 때 호출됩니다.
+    /// </summary>
+    void OnTriggerEnter(Collider other)
+    {
+        // 1. 진입한 트리거의 태그가 "EndPoint"인지 확인합니다.
+        // (EndPoint 오브젝트의 Tag를 "EndPoint"로, Collider의 Is Trigger를 true로 설정해야 함)
+        if (other.CompareTag("EndPoint"))
+        {
+            // 2. 명령이 실행 중일 때만 성공으로 처리 (중복 방지)
+            if (isExecuting)
+            {
+                Debug.Log("성공! (OnTriggerEnter 감지)");
+
+                // 3. 성공 패널 활성화
+                if (successPanel != null)
+                {
+                    successPanel.SetActive(true);
+                }
+
+                // 4. (중요) 성공했으므로, 남아있는 명령(코루틴)을 모두 중지합니다.
+                StopAllCoroutines();
+                isExecuting = false;
+            }
+        }
     }
 
     #endregion

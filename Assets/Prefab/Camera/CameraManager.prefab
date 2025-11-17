@@ -42,6 +42,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5108960526915098521}
   - component: {fileID: 6450959029051815979}
+  - component: {fileID: -8942311468569187506}
   m_Layer: 0
   m_Name: CameraManager
   m_TagString: Untagged
@@ -68,6 +69,22 @@ Transform:
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6450959029051815979
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1199500684956210432}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 721b4e6006fa43a45a939a3c48c79ad2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cameras:
+  - {fileID: 1179289162079315351}
+  - {fileID: 566130249081238527}
+  - {fileID: 344915337266695916}
+--- !u!114 &-8942311468569187506
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -400,8 +417,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4465724797217029209}
-  - component: {fileID: 6151948735479979943}
-  - component: {fileID: 8423907258758478967}
   m_Layer: 0
   m_Name: Third
   m_TagString: Untagged
@@ -425,33 +440,3 @@ Transform:
   - {fileID: 5250024711897482389}
   m_Father: {fileID: 5108960526915098521}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6151948735479979943
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8942902544408239820}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 830559f0563ccab478f2d7210ae7b21d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  target: {fileID: 0}
-  smoothSpeed: 0.125
-  offset: {x: 0, y: 0, z: 0}
---- !u!114 &8423907258758478967
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8942902544408239820}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 830559f0563ccab478f2d7210ae7b21d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  target: {fileID: 8291731386128259596, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
-  smoothSpeed: 0.125
-  offset: {x: 0, y: 0, z: 0}

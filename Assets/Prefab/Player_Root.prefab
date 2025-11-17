@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7146105599319871837}
   - component: {fileID: 3853357480864981861}
   m_Layer: 0
-  m_Name: Player_root
+  m_Name: Player_Root
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -47,9 +47,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ed3e32627200104c891115919f86f5b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  forwardIcon: {fileID: 21300000, guid: ae4ddb0bfc8545a42893b4c3384eb686, type: 3}
-  rightIcon: {fileID: 21300000, guid: 787f0dde710a781429440b1ce4efe6a4, type: 3}
-  leftIcon: {fileID: 21300000, guid: b5541ec9276fcb54b8a320e467b9b567, type: 3}
+  forwardIcon: {fileID: 21300000, guid: 6050c5ead89b19a4e882acf871b7f2a3, type: 3}
+  rightIcon: {fileID: 21300000, guid: d2a68d39b6cb1244fb9d19ff4a09833d, type: 3}
+  leftIcon: {fileID: 21300000, guid: b130ba854be66b549bc3a4ac672040fd, type: 3}
   startBox: {fileID: 2757185673320681108, guid: 37db4f41756348c4092a5893b77bea4f, type: 3}
   endPoint: {fileID: 3293452119076125328, guid: 5d59823dbeabef748b410081112d86cb, type: 3}
   moveStep: 1

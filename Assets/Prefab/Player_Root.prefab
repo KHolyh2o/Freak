@@ -47,6 +47,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ed3e32627200104c891115919f86f5b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  highlightScale: 1.2
   forwardIcon: {fileID: 21300000, guid: 6050c5ead89b19a4e882acf871b7f2a3, type: 3}
   rightIcon: {fileID: 21300000, guid: d2a68d39b6cb1244fb9d19ff4a09833d, type: 3}
   leftIcon: {fileID: 21300000, guid: b130ba854be66b549bc3a4ac672040fd, type: 3}
@@ -82,7 +83,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Size: {x: 0.6, y: 1, z: 0.6}
   m_Center: {x: 0, y: 0.46, z: 0}
 --- !u!54 &3853357480864981861
 Rigidbody:

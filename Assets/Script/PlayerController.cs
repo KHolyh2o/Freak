@@ -5,6 +5,9 @@ using UnityEngine.UI; // 레거시 UI(Text)를 사용하기 위해 필요합니�
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("UI 하이라이트 설정")]
+    public float highlightScale = 1.2f; // 1.2배 커짐 (기본값)
+
     // --- 명령 관련 변수 ---
     public enum CommandType { Forward, TurnRight, TurnLeft }
     private List<CommandType> commandList = new List<CommandType>();
@@ -290,18 +293,26 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void HighlightCommandIcon(int index, bool highlight)
     {
+        // 1. 패널이나 아이콘이 없으면 리턴
         if (commandSequencePanel == null || index < 0 || index >= commandSequencePanel.transform.childCount)
         {
             return;
         }
 
+        // 2. 해당 순서(index)의 아이콘 오브젝트를 찾음
         Transform commandIconTransform = commandSequencePanel.transform.GetChild(index);
-        Image iconImage = commandIconTransform.GetComponent<Image>();
 
-        if (iconImage != null)
+        // --- [색상 변경 코드 삭제됨] ---
+
+        // --- [크기(Scale) 변경] ---
+        // highlight가 true면 설정한 비율(highlightScale)만큼 커지고, 아니면 원래 크기(1.0)로 돌아옴
+        if (highlight)
         {
-            iconImage.color = highlight ? Color.yellow : Color.white;
-            // iconImage.transform.localScale = highlight ? Vector3.one * 1.2f : Vector3.one;
+            commandIconTransform.localScale = Vector3.one * highlightScale;
+        }
+        else
+        {
+            commandIconTransform.localScale = Vector3.one;
         }
     }
 

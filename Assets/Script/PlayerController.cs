@@ -52,6 +52,8 @@ public class PlayerController : MonoBehaviour
     [Header("태그 이름 (문자열)")]
     public string obstacleTag = "Obstacle";
 
+    private SoundManager soundManager;
+
 
     void Start()
     {
@@ -72,6 +74,8 @@ public class PlayerController : MonoBehaviour
 
         transform.position = startPosition;
         transform.rotation = startRotation;
+
+        soundManager = FindObjectOfType<SoundManager>();
     }
 
     /// <summary>
@@ -140,6 +144,7 @@ public class PlayerController : MonoBehaviour
         if (!IsGrounded())
         {
             Debug.Log("시작 지점이 'Road' 레이어 위에 있지 않습니다!");
+            soundManager?.PlayFall();
             ResetPlayer();
             yield break;
         }
@@ -150,6 +155,8 @@ public class PlayerController : MonoBehaviour
         {
             // 명령 실행 전 하이라이트
             HighlightCommandIcon(currentCommandIndex, true);
+
+            soundManager?.PlayStep();
 
             switch (cmd)
             {
@@ -179,6 +186,7 @@ public class PlayerController : MonoBehaviour
             if (!IsGrounded())
             {
                 Debug.Log("길을 벗어났습니다! (Raycast 실패)");
+                soundManager?.PlayFall();
                 ResetPlayer();
                 yield break;
             }
@@ -202,6 +210,7 @@ public class PlayerController : MonoBehaviour
         if (hasObstacle && hit.collider.CompareTag(obstacleTag))
         {
             Debug.Log("나무에 부딪혔습니다!");
+            soundManager?.PlayBump();
             Vector3 originalPos = transform.position;
             Vector3 bumpTargetPos = originalPos - transform.forward * bumpForce;
             float elapsedTime = 0;
@@ -351,6 +360,8 @@ public class PlayerController : MonoBehaviour
             if (isExecuting)
             {
                 Debug.Log("성공! (OnTriggerEnter 감지)");
+
+                soundManager?.PlaySuccess();
 
                 // 3. 성공 패널 활성화
                 if (successPanel != null)

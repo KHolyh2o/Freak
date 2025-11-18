@@ -48,6 +48,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -755009964982586462, guid: 121c5652ddcef724bb1b0c43ed51cb1d, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 638b09f5f2d06d84a88f7e378a943efa, type: 2}
     - target: {fileID: 919132149155446097, guid: 121c5652ddcef724bb1b0c43ed51cb1d, type: 3}
       propertyPath: m_Name
       value: tree
@@ -56,6 +60,10 @@ PrefabInstance:
       propertyPath: m_TagString
       value: Obstacle
       objectReference: {fileID: 0}
+    - target: {fileID: 3566390031902043909, guid: 121c5652ddcef724bb1b0c43ed51cb1d, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 71f5fc8b122bea2469bde261507b2d27, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

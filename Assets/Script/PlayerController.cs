@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro; // (★ 필수)
 
 public class PlayerController : MonoBehaviour
 {
@@ -20,6 +21,7 @@ public class PlayerController : MonoBehaviour
     private GameObject commandSlotPrefab;
     private GameObject successPanel;
     private GameObject loopConfigPopup;
+    private TextMeshProUGUI limitText; // (★ TMP 변경)
 
     // --- 아이콘 스프라이트 ---
     [Header("아이콘 스프라이트")]
@@ -47,12 +49,15 @@ public class PlayerController : MonoBehaviour
     public float bumpForce = 0.2f;
     public float bumpDuration = 0.15f;
 
-    // --- 감지 설정 ---
-    [Header("감지 설정")]
+    // --- 감지 및 제한 설정 ---
+    [Header("감지 및 제한 설정")]
     public LayerMask roadLayer;
     public float groundCheckDistance = 2.0f;
     public string obstacleTag = "Obstacle";
-    public int loopRepeatCount = 2;
+
+    public int loopRepeatCount = 1; // 루프 반복 횟수
+    public int maxLoopConfigLimit = 4; // 루프 설정 최대 개수
+    public int maxCommandCost = 10; // 스테이지 최대 코스트
 
     private SoundManager soundManager;
 
@@ -73,41 +78,34 @@ public class PlayerController : MonoBehaviour
         soundManager = FindObjectOfType<SoundManager>();
     }
 
-    // UI 초기화
-    public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup)
+    // ---------------------------------------------------------
+    // ★ 수정된 초기화 함수 (인자 6개)
+    // ---------------------------------------------------------
+    public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt)
     {
         this.commandSequencePanel = mainPanel;
         this.loopSequencePanel = loopPanel;
         this.commandSlotPrefab = slotPrefab;
         this.successPanel = successPnl;
         this.loopConfigPopup = loopPopup;
+        this.limitText = limitTxt; // (★ 오류 해결 부분)
 
-        ResetPlayer(); // 여기서 호출됨
+        ResetPlayer();
     }
 
     // ---------------------------------------------------------
-    // 1. 스마트 버튼 기능
+    // 버튼 기능
     // ---------------------------------------------------------
+    public void AddCommand_Forward() { AddSmartCommand(CommandType.Forward); }
+    public void AddCommand_TurnRight() { AddSmartCommand(CommandType.TurnRight); }
+    public void AddCommand_TurnLeft() { AddSmartCommand(CommandType.TurnLeft); }
 
-    public void AddCommand_Forward()
+    // 통합 처리 함수
+    private void AddSmartCommand(CommandType type)
     {
         if (isExecuting) return;
-        if (IsLoopPopupActive()) AddToConfig(CommandType.Forward);
-        else AddToMain(CommandType.Forward);
-    }
-
-    public void AddCommand_TurnRight()
-    {
-        if (isExecuting) return;
-        if (IsLoopPopupActive()) AddToConfig(CommandType.TurnRight);
-        else AddToMain(CommandType.TurnRight);
-    }
-
-    public void AddCommand_TurnLeft()
-    {
-        if (isExecuting) return;
-        if (IsLoopPopupActive()) AddToConfig(CommandType.TurnLeft);
-        else AddToMain(CommandType.TurnLeft);
+        if (IsLoopPopupActive()) AddToConfig(type);
+        else AddToMain(type);
     }
 
     public void AddCommand_Loop_ToMain()
@@ -122,24 +120,63 @@ public class PlayerController : MonoBehaviour
         return loopConfigPopup != null && loopConfigPopup.activeSelf;
     }
 
+    // ---------------------------------------------------------
+    // 메인/루프 리스트 추가 로직 (코스트/개수 제한 포함)
+    // ---------------------------------------------------------
+
     private void AddToMain(CommandType type)
     {
+        // 코스트 제한 확인
+        int incomingCost = (type == CommandType.Loop) ? 2 : 1;
+        if (GetCurrentCost() + incomingCost > maxCommandCost)
+        {
+            Debug.Log("코스트 초과!");
+            soundManager?.PlayBump();
+            return;
+        }
+
         mainCommandList.Add(type);
         UpdateIcons(commandSequencePanel, mainCommandList);
+        UpdateLimitText();
         soundManager?.PlayCommandClick();
     }
 
     private void AddToConfig(CommandType type)
     {
+        // 개수 제한 확인
+        if (loopCommandConfig.Count >= maxLoopConfigLimit)
+        {
+            Debug.Log("루프 설정 개수 초과!");
+            soundManager?.PlayBump();
+            return;
+        }
+
         loopCommandConfig.Add(type);
         UpdateIcons(loopSequencePanel, loopCommandConfig);
         soundManager?.PlayCommandClick();
     }
 
-    // ---------------------------------------------------------
-    // 2. 팝업창 관리 기능
-    // ---------------------------------------------------------
+    // 코스트 계산 및 텍스트 갱신
+    private int GetCurrentCost()
+    {
+        int total = 0;
+        foreach (var cmd in mainCommandList) total += (cmd == CommandType.Loop) ? 2 : 1;
+        return total;
+    }
 
+    private void UpdateLimitText()
+    {
+        if (limitText != null)
+        {
+            int current = GetCurrentCost();
+            limitText.text = $"{current} / {maxCommandCost}";
+            limitText.color = (current >= maxCommandCost) ? Color.red : Color.white; // 색상 변경 예시
+        }
+    }
+
+    // ---------------------------------------------------------
+    // 팝업창 관리
+    // ---------------------------------------------------------
     public void OpenLoopConfigPopup()
     {
         if (isExecuting) return;
@@ -164,9 +201,8 @@ public class PlayerController : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // 3. 실행 및 리셋 (여기에 누락되었던 ResetPlayer 추가함)
+    // 실행 및 리셋
     // ---------------------------------------------------------
-
     public void ExecuteCommands()
     {
         if (isExecuting) return;
@@ -179,13 +215,12 @@ public class PlayerController : MonoBehaviour
         ResetPlayer();
     }
 
-    // ★ 누락되었던 함수 복구 완료 ★
     private void ResetPlayer()
     {
         ResetPlayerPosition();
         mainCommandList.Clear();
-        // loopCommandConfig는 유지함
         UpdateIcons(commandSequencePanel, mainCommandList);
+        UpdateLimitText(); // (★ 리셋 시 텍스트 갱신)
     }
 
     private void ResetPlayerPosition()
@@ -197,22 +232,13 @@ public class PlayerController : MonoBehaviour
         if (successPanel != null) successPanel.SetActive(false);
     }
 
-
     // ---------------------------------------------------------
-    // 4. 실행 로직
+    // 실행 로직 (코루틴)
     // ---------------------------------------------------------
-
     IEnumerator ExecuteSequence()
     {
         isExecuting = true;
-
-        if (!IsGrounded())
-        {
-            Debug.Log("시작 지점 오류");
-            soundManager?.PlayFall();
-            ResetPlayer();
-            yield break;
-        }
+        if (!IsGrounded()) { FailSequence(); yield break; }
 
         int index = 0;
         foreach (CommandType cmd in mainCommandList)
@@ -227,9 +253,7 @@ public class PlayerController : MonoBehaviour
                     {
                         yield return StartCoroutine(ProcessSingleCommand(subCmd));
                         yield return new WaitForSeconds(0.1f);
-
-                        if (!isExecuting) yield break;
-                        if (!IsGrounded()) { FailSequence(); yield break; }
+                        if (!CheckStatus()) yield break;
                     }
                 }
             }
@@ -237,16 +261,20 @@ public class PlayerController : MonoBehaviour
             {
                 yield return StartCoroutine(ProcessSingleCommand(cmd));
                 yield return new WaitForSeconds(0.1f);
-
-                if (!isExecuting) yield break;
-                if (!IsGrounded()) { FailSequence(); yield break; }
+                if (!CheckStatus()) yield break;
             }
 
             HighlightIcon(commandSequencePanel, index, false);
             index++;
         }
-
         isExecuting = false;
+    }
+
+    bool CheckStatus()
+    {
+        if (!isExecuting) return false;
+        if (!IsGrounded()) { FailSequence(); return false; }
+        return true;
     }
 
     IEnumerator ProcessSingleCommand(CommandType cmd)
@@ -268,7 +296,7 @@ public class PlayerController : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // 5. 물리 이동 로직
+    // 물리 이동
     // ---------------------------------------------------------
     IEnumerator MoveForward()
     {
@@ -277,9 +305,7 @@ public class PlayerController : MonoBehaviour
 
         if (hasObstacle && hit.collider.CompareTag(obstacleTag))
         {
-            Debug.Log("장애물 충돌!");
             soundManager?.PlayBump();
-
             Vector3 originalPos = transform.position;
             Vector3 bumpTargetPos = originalPos - transform.forward * bumpForce;
             float elapsedTime = 0;
@@ -296,7 +322,6 @@ public class PlayerController : MonoBehaviour
         Vector3 startPos = transform.position;
         Vector3 targetPos = transform.position + transform.forward * moveStep;
         float elapsedTimeMove = 0;
-
         while (elapsedTimeMove < moveDuration)
         {
             transform.position = Vector3.Lerp(startPos, targetPos, elapsedTimeMove / moveDuration);
@@ -311,7 +336,6 @@ public class PlayerController : MonoBehaviour
         Quaternion startRot = transform.rotation;
         Quaternion targetRot = transform.rotation * Quaternion.Euler(0, angle, 0);
         float elapsedTime = 0;
-
         while (elapsedTime < turnDuration)
         {
             transform.rotation = Quaternion.Slerp(startRot, targetRot, elapsedTime / turnDuration);
@@ -328,21 +352,17 @@ public class PlayerController : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("EndPoint"))
+        if (other.CompareTag("EndPoint") && isExecuting)
         {
-            if (isExecuting)
-            {
-                Debug.Log("성공!");
-                soundManager?.PlaySuccess();
-                if (successPanel != null) successPanel.SetActive(true);
-                StopAllCoroutines();
-                isExecuting = false;
-            }
+            soundManager?.PlaySuccess();
+            if (successPanel != null) successPanel.SetActive(true);
+            StopAllCoroutines();
+            isExecuting = false;
         }
     }
 
     // ---------------------------------------------------------
-    // 6. UI 업데이트
+    // UI 업데이트
     // ---------------------------------------------------------
     private void UpdateIcons(GameObject panel, List<CommandType> list)
     {

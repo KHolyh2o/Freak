@@ -2,16 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro; // (★ 필수)
 
 public class UI_Auto_Connector : MonoBehaviour
 {
     [Header("이 캔버스의 자식 UI")]
-    public GameObject commandSequencePanel; // 메인 시퀀스 패널 (Content)
-    public GameObject loopSequencePanel;    // (★추가) 반복 설정창의 시퀀스 패널 (Content)
+    public GameObject commandSequencePanel;
+    public GameObject loopSequencePanel;
+    public GameObject commandSlotPrefab;
+    public GameObject successPanel;
+    public GameObject loopConfigPopup;
 
-    public GameObject commandSlotPrefab;    // 아이콘 프리팹
-    public GameObject successPanel;         // 성공 패널
-    public GameObject loopConfigPopup;      // (★추가) 반복 설정 팝업창 전체
+    public TextMeshProUGUI limitText; // (★ TMP 변경)
 
     [Header("자동 연결할 버튼들")]
     public Button forwardButton;
@@ -20,12 +22,7 @@ public class UI_Auto_Connector : MonoBehaviour
     public Button executeButton;
     public Button resetButton;
     public Button cameraButton;
-
-    public Button loopButton; // (★추가) Loop 버튼
-
-    // ------------------------------------
-    // 아래는 내부 로직
-    // ------------------------------------
+    public Button loopButton;
 
     private PlayerController playerController;
     private CameraSwitcher cameraSwitcher;
@@ -34,20 +31,18 @@ public class UI_Auto_Connector : MonoBehaviour
     void Start()
     {
         soundManager = FindObjectOfType<SoundManager>();
-
-        // --- 1. 플레이어 찾기 및 연결 ---
         playerController = FindObjectOfType<PlayerController>();
 
         if (playerController != null)
         {
-            // (★수정됨) 5개의 인자를 순서대로 전달합니다.
-            // (메인패널, 루프패널, 프리팹, 성공패널, 팝업창)
+            // (★수정됨: 인자 6개 전달)
             playerController.InitializeUI(
                 commandSequencePanel,
                 loopSequencePanel,
                 commandSlotPrefab,
                 successPanel,
-                loopConfigPopup
+                loopConfigPopup,
+                limitText
             );
 
             // --- 버튼 연결 ---
@@ -74,20 +69,16 @@ public class UI_Auto_Connector : MonoBehaviour
                 resetButton.onClick.AddListener(() => soundManager?.PlayResetClick());
             }
 
-            // (★추가) Loop 버튼 연결 (좌클릭은 Main에 추가, 우클릭은 팝업 열기)
             if (loopButton != null)
             {
-                // 1. 마우스 핸들러 가져오기 (없으면 추가)
-                MouseButtonHandler mouseHandler = loopButton.GetComponent<MouseButtonHandler>();
-                if (mouseHandler == null) mouseHandler = loopButton.gameObject.AddComponent<MouseButtonHandler>();
+                MouseButtonHandler handler = loopButton.GetComponent<MouseButtonHandler>();
+                if (handler == null) handler = loopButton.gameObject.AddComponent<MouseButtonHandler>();
 
-                // 2. 이벤트 연결
-                mouseHandler.onLeftClick.RemoveAllListeners();
-                mouseHandler.onLeftClick.AddListener(playerController.AddCommand_Loop_ToMain);
-                // mouseHandler.onLeftClick.AddListener(() => soundManager?.PlayCommandClick()); // 필요시 추가
+                handler.onLeftClick.RemoveAllListeners();
+                handler.onLeftClick.AddListener(playerController.AddCommand_Loop_ToMain);
 
-                mouseHandler.onRightClick.RemoveAllListeners();
-                mouseHandler.onRightClick.AddListener(playerController.OpenLoopConfigPopup);
+                handler.onRightClick.RemoveAllListeners();
+                handler.onRightClick.AddListener(playerController.OpenLoopConfigPopup);
             }
         }
         else
@@ -95,7 +86,7 @@ public class UI_Auto_Connector : MonoBehaviour
             Debug.LogError("UI_Auto_Connector가 씬에서 PlayerController를 찾지 못했습니다!");
         }
 
-        // --- 2. 카메라 연결 ---
+        // --- 카메라 연결 ---
         cameraSwitcher = FindObjectOfType<CameraSwitcher>();
         if (cameraSwitcher != null)
         {

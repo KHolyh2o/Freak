@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro; // (★ 필수)
+using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
@@ -21,7 +21,7 @@ public class PlayerController : MonoBehaviour
     private GameObject commandSlotPrefab;
     private GameObject successPanel;
     private GameObject loopConfigPopup;
-    private TextMeshProUGUI limitText; // (★ TMP 변경)
+    private TextMeshProUGUI limitText;
 
     // --- 아이콘 스프라이트 ---
     [Header("아이콘 스프라이트")]
@@ -55,11 +55,12 @@ public class PlayerController : MonoBehaviour
     public float groundCheckDistance = 2.0f;
     public string obstacleTag = "Obstacle";
 
-    public int loopRepeatCount = 1; // 루프 반복 횟수
-    public int maxLoopConfigLimit = 4; // 루프 설정 최대 개수
-    public int maxCommandCost = 10; // 스테이지 최대 코스트
+    public int loopRepeatCount = 1;
+    public int maxLoopConfigLimit = 4;
+    public int maxCommandCost = 10;
 
     private SoundManager soundManager;
+    private CameraSwitcher cameraSwitcher; // (★ 추가: 카메라 매니저 참조)
 
     void Start()
     {
@@ -76,10 +77,11 @@ public class PlayerController : MonoBehaviour
         transform.rotation = startRotation;
 
         soundManager = FindObjectOfType<SoundManager>();
+        cameraSwitcher = FindObjectOfType<CameraSwitcher>(); // (★ 추가: 카메라 매니저 찾기)
     }
 
     // ---------------------------------------------------------
-    // ★ 수정된 초기화 함수 (인자 6개)
+    // UI 초기화
     // ---------------------------------------------------------
     public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt)
     {
@@ -88,7 +90,7 @@ public class PlayerController : MonoBehaviour
         this.commandSlotPrefab = slotPrefab;
         this.successPanel = successPnl;
         this.loopConfigPopup = loopPopup;
-        this.limitText = limitTxt; // (★ 오류 해결 부분)
+        this.limitText = limitTxt;
 
         ResetPlayer();
     }
@@ -99,15 +101,6 @@ public class PlayerController : MonoBehaviour
     public void AddCommand_Forward() { AddSmartCommand(CommandType.Forward); }
     public void AddCommand_TurnRight() { AddSmartCommand(CommandType.TurnRight); }
     public void AddCommand_TurnLeft() { AddSmartCommand(CommandType.TurnLeft); }
-
-    // 통합 처리 함수
-    private void AddSmartCommand(CommandType type)
-    {
-        if (isExecuting) return;
-        if (IsLoopPopupActive()) AddToConfig(type);
-        else AddToMain(type);
-    }
-
     public void AddCommand_Loop_ToMain()
     {
         if (isExecuting) return;
@@ -115,18 +108,20 @@ public class PlayerController : MonoBehaviour
         soundManager?.PlayCommandClick();
     }
 
+    private void AddSmartCommand(CommandType type)
+    {
+        if (isExecuting) return;
+        if (IsLoopPopupActive()) AddToConfig(type);
+        else AddToMain(type);
+    }
+
     private bool IsLoopPopupActive()
     {
         return loopConfigPopup != null && loopConfigPopup.activeSelf;
     }
 
-    // ---------------------------------------------------------
-    // 메인/루프 리스트 추가 로직 (코스트/개수 제한 포함)
-    // ---------------------------------------------------------
-
     private void AddToMain(CommandType type)
     {
-        // 코스트 제한 확인
         int incomingCost = (type == CommandType.Loop) ? 2 : 1;
         if (GetCurrentCost() + incomingCost > maxCommandCost)
         {
@@ -143,7 +138,6 @@ public class PlayerController : MonoBehaviour
 
     private void AddToConfig(CommandType type)
     {
-        // 개수 제한 확인
         if (loopCommandConfig.Count >= maxLoopConfigLimit)
         {
             Debug.Log("루프 설정 개수 초과!");
@@ -156,7 +150,6 @@ public class PlayerController : MonoBehaviour
         soundManager?.PlayCommandClick();
     }
 
-    // 코스트 계산 및 텍스트 갱신
     private int GetCurrentCost()
     {
         int total = 0;
@@ -170,7 +163,7 @@ public class PlayerController : MonoBehaviour
         {
             int current = GetCurrentCost();
             limitText.text = $"{current} / {maxCommandCost}";
-            limitText.color = (current >= maxCommandCost) ? Color.red : Color.white; // 색상 변경 예시
+            limitText.color = (current >= maxCommandCost) ? Color.red : Color.white;
         }
     }
 
@@ -203,16 +196,25 @@ public class PlayerController : MonoBehaviour
     // ---------------------------------------------------------
     // 실행 및 리셋
     // ---------------------------------------------------------
+
     public void ExecuteCommands()
     {
         if (isExecuting) return;
         ResetPlayerPosition();
+
+        // (★ 추가) 실행 시 3인칭 카메라(Index 2)로 전환
+        // 카메라 순서가 0:Main, 1:Side, 2:ThirdPerson 이라고 가정
+        cameraSwitcher?.SetSpecificCamera(2);
+
         StartCoroutine(ExecuteSequence());
     }
 
     public void ResetGame()
     {
         ResetPlayer();
+
+        // (★ 추가) 리셋 시 메인 카메라(Index 0)로 복귀
+        cameraSwitcher?.SetSpecificCamera(0);
     }
 
     private void ResetPlayer()
@@ -220,7 +222,7 @@ public class PlayerController : MonoBehaviour
         ResetPlayerPosition();
         mainCommandList.Clear();
         UpdateIcons(commandSequencePanel, mainCommandList);
-        UpdateLimitText(); // (★ 리셋 시 텍스트 갱신)
+        UpdateLimitText();
     }
 
     private void ResetPlayerPosition()
@@ -232,13 +234,22 @@ public class PlayerController : MonoBehaviour
         if (successPanel != null) successPanel.SetActive(false);
     }
 
+
     // ---------------------------------------------------------
     // 실행 로직 (코루틴)
     // ---------------------------------------------------------
+
     IEnumerator ExecuteSequence()
     {
         isExecuting = true;
-        if (!IsGrounded()) { FailSequence(); yield break; }
+
+        if (!IsGrounded())
+        {
+            Debug.Log("시작 지점 오류");
+            soundManager?.PlayFall();
+            ResetPlayer(); // (주의: 여기서 리셋되면 카메라도 돌아갑니다)
+            yield break;
+        }
 
         int index = 0;
         foreach (CommandType cmd in mainCommandList)
@@ -253,7 +264,9 @@ public class PlayerController : MonoBehaviour
                     {
                         yield return StartCoroutine(ProcessSingleCommand(subCmd));
                         yield return new WaitForSeconds(0.1f);
-                        if (!CheckStatus()) yield break;
+
+                        if (!isExecuting) yield break;
+                        if (!IsGrounded()) { FailSequence(); yield break; }
                     }
                 }
             }
@@ -261,20 +274,18 @@ public class PlayerController : MonoBehaviour
             {
                 yield return StartCoroutine(ProcessSingleCommand(cmd));
                 yield return new WaitForSeconds(0.1f);
-                if (!CheckStatus()) yield break;
+
+                if (!isExecuting) yield break;
+                if (!IsGrounded()) { FailSequence(); yield break; }
             }
 
             HighlightIcon(commandSequencePanel, index, false);
             index++;
         }
-        isExecuting = false;
-    }
 
-    bool CheckStatus()
-    {
-        if (!isExecuting) return false;
-        if (!IsGrounded()) { FailSequence(); return false; }
-        return true;
+        isExecuting = false;
+        // (선택) 실행이 무사히 다 끝나면 카메라를 돌릴지, 성공 패널 뜰때까지 유지할지 결정
+        // 여기서는 성공 패널을 봐야 하므로 카메라를 유지합니다.
     }
 
     IEnumerator ProcessSingleCommand(CommandType cmd)
@@ -292,7 +303,10 @@ public class PlayerController : MonoBehaviour
     {
         Debug.Log("실패!");
         soundManager?.PlayFall();
-        ResetPlayer();
+        // 실패 시 리셋하면 카메라도 0번으로 돌아갑니다. (ResetGame -> ResetPlayer -> SetCamera(0) 호출 안함)
+        // 실패 후 자동 복귀를 원하면 아래 ResetPlayer() 호출.
+        // 사용자가 '다시하기' 버튼을 눌러야 돌아가게 하고 싶으면 여기서는 카메라 안 바꿈.
+        ResetPlayerPosition(); // 위치만 돌려놓음 (카메라는 3인칭 유지)
     }
 
     // ---------------------------------------------------------
@@ -374,14 +388,29 @@ public class PlayerController : MonoBehaviour
         {
             GameObject slot = Instantiate(commandSlotPrefab, panel.transform);
             Image img = slot.GetComponent<Image>();
+            RectTransform rect = slot.GetComponent<RectTransform>();
+
             if (img != null)
             {
                 switch (cmd)
                 {
-                    case CommandType.Forward: img.sprite = forwardIcon; break;
-                    case CommandType.TurnRight: img.sprite = rightIcon; break;
-                    case CommandType.TurnLeft: img.sprite = leftIcon; break;
-                    case CommandType.Loop: img.sprite = loopIcon; break;
+                    case CommandType.Forward:
+                        img.sprite = forwardIcon;
+                        break;
+                    case CommandType.TurnRight:
+                        img.sprite = rightIcon;
+                        break;
+                    case CommandType.TurnLeft:
+                        img.sprite = leftIcon;
+                        break;
+                    case CommandType.Loop:
+                        img.sprite = loopIcon;
+                        // Loop 아이콘 너비 2배 설정
+                        if (rect != null)
+                        {
+                            rect.sizeDelta = new Vector2(rect.sizeDelta.x * 2f, rect.sizeDelta.y);
+                        }
+                        break;
                 }
                 img.color = (img.sprite != null) ? Color.white : Color.gray;
             }
@@ -392,6 +421,17 @@ public class PlayerController : MonoBehaviour
     {
         if (panel == null || index < 0 || index >= panel.transform.childCount) return;
         Transform tr = panel.transform.GetChild(index);
-        tr.localScale = highlight ? Vector3.one * highlightScale : Vector3.one;
+
+        // 하이라이트 시 크기 변경
+        if (highlight)
+        {
+            // 원래 크기(loop는 2배 등)를 고려하려면 좀 더 복잡하지만, 
+            // 단순하게 전체 스케일을 키우는 방식 사용
+            tr.localScale = Vector3.one * highlightScale;
+        }
+        else
+        {
+            tr.localScale = Vector3.one;
+        }
     }
 }

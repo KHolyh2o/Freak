@@ -436,7 +436,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 830559f0563ccab478f2d7210ae7b21d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  cameraTransform: {fileID: 5250024711897482389}
   target: {fileID: 8291731386128259596, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
-  followTime: 0.1
-  offset: {x: 0, y: 1.5, z: 0}
-  fixedXRotation: 10
+  smoothSpeed: 0.125
+  offset: {x: 0, y: 2, z: -2}
+  fixedXRotation: 20

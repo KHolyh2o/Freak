@@ -1,21 +1,18 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro; // (★ 필수)
+using TMPro;
 
 public class UI_Auto_Connector : MonoBehaviour
 {
-    [Header("이 캔버스의 자식 UI")]
+    [Header("UI 연결")]
     public GameObject commandSequencePanel;
     public GameObject loopSequencePanel;
     public GameObject commandSlotPrefab;
     public GameObject successPanel;
     public GameObject loopConfigPopup;
+    public TextMeshProUGUI limitText;
 
-    public TextMeshProUGUI limitText; // (★ TMP 변경)
-
-    [Header("자동 연결할 버튼들")]
+    [Header("버튼 연결")]
     public Button forwardButton;
     public Button rightButton;
     public Button leftButton;
@@ -24,78 +21,52 @@ public class UI_Auto_Connector : MonoBehaviour
     public Button cameraButton;
     public Button loopButton;
 
-    private PlayerController playerController;
-    private CameraSwitcher cameraSwitcher;
-    private SoundManager soundManager;
-
     void Start()
     {
-        soundManager = FindObjectOfType<SoundManager>();
-        playerController = FindObjectOfType<PlayerController>();
+        var player = FindObjectOfType<PlayerController>();
+        var camSwitcher = FindObjectOfType<CameraSwitcher>();
+        var sm = SoundManager.Instance; // 싱글톤 사용
 
-        if (playerController != null)
+        if (player != null)
         {
-            // (★수정됨: 인자 6개 전달)
-            playerController.InitializeUI(
-                commandSequencePanel,
-                loopSequencePanel,
-                commandSlotPrefab,
-                successPanel,
-                loopConfigPopup,
-                limitText
-            );
+            player.InitializeUI(commandSequencePanel, loopSequencePanel, commandSlotPrefab, successPanel, loopConfigPopup, limitText);
 
-            // --- 버튼 연결 ---
+            // 버튼 리스너 연결 (람다식으로 간결하게 표현)
             forwardButton.onClick.RemoveAllListeners();
-            forwardButton.onClick.AddListener(playerController.AddCommand_Forward);
-            forwardButton.onClick.AddListener(() => soundManager?.PlayCommandClick());
+            forwardButton.onClick.AddListener(() => { player.AddCommand_Forward(); });
 
             rightButton.onClick.RemoveAllListeners();
-            rightButton.onClick.AddListener(playerController.AddCommand_TurnRight);
-            rightButton.onClick.AddListener(() => soundManager?.PlayCommandClick());
+            rightButton.onClick.AddListener(() => { player.AddCommand_TurnRight(); });
 
             leftButton.onClick.RemoveAllListeners();
-            leftButton.onClick.AddListener(playerController.AddCommand_TurnLeft);
-            leftButton.onClick.AddListener(() => soundManager?.PlayCommandClick());
+            leftButton.onClick.AddListener(() => { player.AddCommand_TurnLeft(); });
 
             executeButton.onClick.RemoveAllListeners();
-            executeButton.onClick.AddListener(playerController.ExecuteCommands);
-            executeButton.onClick.AddListener(() => soundManager?.PlayExecuteClick());
+            executeButton.onClick.AddListener(() => { player.ExecuteCommands(); sm?.PlayExecuteClick(); });
 
             if (resetButton != null)
             {
                 resetButton.onClick.RemoveAllListeners();
-                resetButton.onClick.AddListener(playerController.ResetGame);
-                resetButton.onClick.AddListener(() => soundManager?.PlayResetClick());
+                resetButton.onClick.AddListener(() => { player.ResetGame(); sm?.PlayResetClick(); });
             }
 
             if (loopButton != null)
             {
-                MouseButtonHandler handler = loopButton.GetComponent<MouseButtonHandler>();
+                var handler = loopButton.GetComponent<MouseButtonHandler>();
                 if (handler == null) handler = loopButton.gameObject.AddComponent<MouseButtonHandler>();
 
                 handler.onLeftClick.RemoveAllListeners();
-                handler.onLeftClick.AddListener(playerController.AddCommand_Loop_ToMain);
+                handler.onLeftClick.AddListener(player.AddCommand_Loop_ToMain);
 
                 handler.onRightClick.RemoveAllListeners();
-                handler.onRightClick.AddListener(playerController.OpenLoopConfigPopup);
+                handler.onRightClick.AddListener(player.OpenLoopConfigPopup);
             }
-        }
-        else
-        {
-            Debug.LogError("UI_Auto_Connector가 씬에서 PlayerController를 찾지 못했습니다!");
         }
 
-        // --- 카메라 연결 ---
-        cameraSwitcher = FindObjectOfType<CameraSwitcher>();
-        if (cameraSwitcher != null)
+        if (camSwitcher != null && cameraButton != null)
         {
-            if (cameraButton != null)
-            {
-                cameraButton.onClick.RemoveAllListeners();
-                cameraButton.onClick.AddListener(cameraSwitcher.SwitchCamera);
-                cameraButton.onClick.AddListener(() => soundManager?.PlayCameraClick());
-            }
+            cameraButton.onClick.RemoveAllListeners();
+            cameraButton.onClick.AddListener(() => { camSwitcher.SwitchCamera(); sm?.PlayCameraClick(); });
         }
     }
 }

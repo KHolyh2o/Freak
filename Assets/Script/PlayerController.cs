@@ -8,12 +8,39 @@ public class PlayerController : MonoBehaviour
 {
     public enum CommandType { Forward, TurnRight, TurnLeft, Loop }
 
-    [Header("UI 하이라이트 설정")]
-    public float highlightScale = 1.2f;
+    [Header("설정")]
+    public float highlightScale = 1.2f; // 아이콘 확대 배율
+    public int maxCommandCost = 10;     // 스테이지 최대 코스트
+    public int loopRepeatCount = 1;     // 루프 반복 횟수
+    public int maxLoopConfigLimit = 4;  // 루프 설정 최대 개수
 
-    // --- 리스트 관리 ---
+    [Header("이동 및 감지")]
+    public float moveStep = 1.0f;
+    public float turnStep = 90.0f;      // (★ 누락되었던 변수 복구)
+    public float moveDuration = 0.5f;
+    public float turnDuration = 0.3f;
+    public float bumpForce = 0.2f;
+    public float bumpDuration = 0.15f;
+    public float groundCheckDistance = 2.0f;
+    public LayerMask roadLayer;
+    public string obstacleTag = "Obstacle";
+
+    [Header("아이콘 리소스")]
+    public Sprite forwardIcon;
+    public Sprite rightIcon;
+    public Sprite leftIcon;
+    public Sprite loopIcon;
+
+    [Header("오브젝트 연결")]
+    public GameObject startBox;
+
+    // --- 내부 상태 변수 ---
     private List<CommandType> mainCommandList = new List<CommandType>();
     private List<CommandType> loopCommandConfig = new List<CommandType>();
+
+    private Vector3 startPosition;
+    private Quaternion startRotation;
+    private bool isExecuting = false;
 
     // --- UI 참조 ---
     private GameObject commandSequencePanel;
@@ -23,66 +50,24 @@ public class PlayerController : MonoBehaviour
     private GameObject loopConfigPopup;
     private TextMeshProUGUI limitText;
 
-    // --- 아이콘 스프라이트 ---
-    [Header("아이콘 스프라이트")]
-    public Sprite forwardIcon;
-    public Sprite rightIcon;
-    public Sprite leftIcon;
-    public Sprite loopIcon;
-
-    // --- 오브젝트 참조 ---
-    [Header("오브젝트 연결")]
-    public GameObject startBox;
-    public GameObject endPoint;
-
-    // --- 플레이어 상태 ---
-    private Vector3 startPosition;
-    private Quaternion startRotation;
-    private bool isExecuting = false;
-
-    // --- 이동 설정 ---
-    [Header("이동 설정")]
-    public float moveStep = 1.0f;
-    public float turnStep = 90.0f;
-    public float moveDuration = 0.5f;
-    public float turnDuration = 0.3f;
-    public float bumpForce = 0.2f;
-    public float bumpDuration = 0.15f;
-
-    // --- 감지 및 제한 설정 ---
-    [Header("감지 및 제한 설정")]
-    public LayerMask roadLayer;
-    public float groundCheckDistance = 2.0f;
-    public string obstacleTag = "Obstacle";
-
-    public int loopRepeatCount = 1;
-    public int maxLoopConfigLimit = 4;
-    public int maxCommandCost = 10;
-
-    private SoundManager soundManager;
-    private CameraSwitcher cameraSwitcher; // (★ 추가: 카메라 매니저 참조)
+    // --- 매니저 참조 ---
+    private CameraSwitcher cameraSwitcher;
 
     void Start()
     {
         if (startBox == null) return;
 
-        startPosition = new Vector3(
-            startBox.transform.position.x,
-            startBox.transform.position.y + 1.33f,
-            startBox.transform.position.z
-        );
+        // 시작 위치 보정 (높이값 1.33f)
+        startPosition = new Vector3(startBox.transform.position.x, startBox.transform.position.y + 1.33f, startBox.transform.position.z);
         startRotation = transform.rotation;
 
         transform.position = startPosition;
         transform.rotation = startRotation;
 
-        soundManager = FindObjectOfType<SoundManager>();
-        cameraSwitcher = FindObjectOfType<CameraSwitcher>(); // (★ 추가: 카메라 매니저 찾기)
+        cameraSwitcher = FindObjectOfType<CameraSwitcher>();
     }
 
-    // ---------------------------------------------------------
-    // UI 초기화
-    // ---------------------------------------------------------
+    // UI_Auto_Connector에서 호출하여 UI 연결
     public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt)
     {
         this.commandSequencePanel = mainPanel;
@@ -92,131 +77,99 @@ public class PlayerController : MonoBehaviour
         this.loopConfigPopup = loopPopup;
         this.limitText = limitTxt;
 
-        ResetPlayer();
+        ResetPlayer(); // 초기화 실행
     }
 
-    // ---------------------------------------------------------
-    // 버튼 기능
-    // ---------------------------------------------------------
-    public void AddCommand_Forward() { AddSmartCommand(CommandType.Forward); }
-    public void AddCommand_TurnRight() { AddSmartCommand(CommandType.TurnRight); }
-    public void AddCommand_TurnLeft() { AddSmartCommand(CommandType.TurnLeft); }
+    #region 버튼 기능 (통합)
+
+    public void AddCommand_Forward() => TryAddCommand(CommandType.Forward);
+    public void AddCommand_TurnRight() => TryAddCommand(CommandType.TurnRight);
+    public void AddCommand_TurnLeft() => TryAddCommand(CommandType.TurnLeft);
+
     public void AddCommand_Loop_ToMain()
     {
         if (isExecuting) return;
-        AddToMain(CommandType.Loop);
-        soundManager?.PlayCommandClick();
+        AddToMainList(CommandType.Loop);
     }
 
-    private void AddSmartCommand(CommandType type)
+    private void TryAddCommand(CommandType type)
     {
         if (isExecuting) return;
-        if (IsLoopPopupActive()) AddToConfig(type);
-        else AddToMain(type);
+
+        if (IsLoopPopupActive()) AddToLoopConfig(type);
+        else AddToMainList(type);
     }
 
-    private bool IsLoopPopupActive()
+    private void AddToMainList(CommandType type)
     {
-        return loopConfigPopup != null && loopConfigPopup.activeSelf;
-    }
-
-    private void AddToMain(CommandType type)
-    {
-        int incomingCost = (type == CommandType.Loop) ? 2 : 1;
-        if (GetCurrentCost() + incomingCost > maxCommandCost)
+        int cost = (type == CommandType.Loop) ? 2 : 1;
+        if (GetCurrentCost() + cost > maxCommandCost)
         {
-            Debug.Log("코스트 초과!");
-            soundManager?.PlayBump();
+            SoundManager.Instance?.PlayBump();
             return;
         }
 
         mainCommandList.Add(type);
         UpdateIcons(commandSequencePanel, mainCommandList);
         UpdateLimitText();
-        soundManager?.PlayCommandClick();
+        SoundManager.Instance?.PlayCommandClick();
     }
 
-    private void AddToConfig(CommandType type)
+    private void AddToLoopConfig(CommandType type)
     {
         if (loopCommandConfig.Count >= maxLoopConfigLimit)
         {
-            Debug.Log("루프 설정 개수 초과!");
-            soundManager?.PlayBump();
+            SoundManager.Instance?.PlayBump();
             return;
         }
 
         loopCommandConfig.Add(type);
         UpdateIcons(loopSequencePanel, loopCommandConfig);
-        soundManager?.PlayCommandClick();
+        SoundManager.Instance?.PlayCommandClick();
     }
 
-    private int GetCurrentCost()
-    {
-        int total = 0;
-        foreach (var cmd in mainCommandList) total += (cmd == CommandType.Loop) ? 2 : 1;
-        return total;
-    }
+    #endregion
 
-    private void UpdateLimitText()
-    {
-        if (limitText != null)
-        {
-            int current = GetCurrentCost();
-            limitText.text = $"{current} / {maxCommandCost}";
-            limitText.color = (current >= maxCommandCost) ? Color.red : Color.white;
-        }
-    }
+    #region 팝업창 관리
 
-    // ---------------------------------------------------------
-    // 팝업창 관리
-    // ---------------------------------------------------------
+    private bool IsLoopPopupActive() => loopConfigPopup != null && loopConfigPopup.activeSelf;
+
     public void OpenLoopConfigPopup()
     {
-        if (isExecuting) return;
-        if (loopConfigPopup != null)
-        {
-            loopConfigPopup.SetActive(true);
-            UpdateIcons(loopSequencePanel, loopCommandConfig);
-        }
+        if (isExecuting || loopConfigPopup == null) return;
+        loopConfigPopup.SetActive(true);
+        UpdateIcons(loopSequencePanel, loopCommandConfig);
     }
 
-    public void CloseLoopConfigPopup()
-    {
-        if (loopConfigPopup != null) loopConfigPopup.SetActive(false);
-    }
+    public void CloseLoopConfigPopup() => loopConfigPopup?.SetActive(false);
 
     public void ClearLoopConfig()
     {
         if (isExecuting) return;
         loopCommandConfig.Clear();
         UpdateIcons(loopSequencePanel, loopCommandConfig);
-        soundManager?.PlayResetClick();
+        SoundManager.Instance?.PlayResetClick();
     }
 
-    // ---------------------------------------------------------
-    // 실행 및 리셋
-    // ---------------------------------------------------------
+    #endregion
+
+    #region 실행 및 리셋
 
     public void ExecuteCommands()
     {
         if (isExecuting) return;
         ResetPlayerPosition();
-
-        // (★ 추가) 실행 시 3인칭 카메라(Index 2)로 전환
-        // 카메라 순서가 0:Main, 1:Side, 2:ThirdPerson 이라고 가정
-        cameraSwitcher?.SetSpecificCamera(2);
-
+        cameraSwitcher?.SetSpecificCamera(2); // 3인칭 카메라
         StartCoroutine(ExecuteSequence());
     }
 
     public void ResetGame()
     {
         ResetPlayer();
-
-        // (★ 추가) 리셋 시 메인 카메라(Index 0)로 복귀
-        cameraSwitcher?.SetSpecificCamera(0);
+        cameraSwitcher?.SetSpecificCamera(0); // 메인 카메라로 복귀
     }
 
+    // (★ 누락되었던 ResetPlayer 함수 복구)
     private void ResetPlayer()
     {
         ResetPlayerPosition();
@@ -231,25 +184,17 @@ public class PlayerController : MonoBehaviour
         isExecuting = false;
         transform.position = startPosition;
         transform.rotation = startRotation;
-        if (successPanel != null) successPanel.SetActive(false);
+        successPanel?.SetActive(false);
     }
 
+    #endregion
 
-    // ---------------------------------------------------------
-    // 실행 로직 (코루틴)
-    // ---------------------------------------------------------
+    #region 메인 로직 (코루틴)
 
     IEnumerator ExecuteSequence()
     {
         isExecuting = true;
-
-        if (!IsGrounded())
-        {
-            Debug.Log("시작 지점 오류");
-            soundManager?.PlayFall();
-            ResetPlayer(); // (주의: 여기서 리셋되면 카메라도 돌아갑니다)
-            yield break;
-        }
+        if (!IsGrounded()) { FailSequence(); yield break; }
 
         int index = 0;
         foreach (CommandType cmd in mainCommandList)
@@ -262,35 +207,28 @@ public class PlayerController : MonoBehaviour
                 {
                     foreach (CommandType subCmd in loopCommandConfig)
                     {
-                        yield return StartCoroutine(ProcessSingleCommand(subCmd));
+                        yield return StartCoroutine(ProcessMove(subCmd));
                         yield return new WaitForSeconds(0.1f);
-
-                        if (!isExecuting) yield break;
-                        if (!IsGrounded()) { FailSequence(); yield break; }
+                        if (!CheckGameState()) yield break;
                     }
                 }
             }
             else
             {
-                yield return StartCoroutine(ProcessSingleCommand(cmd));
+                yield return StartCoroutine(ProcessMove(cmd));
                 yield return new WaitForSeconds(0.1f);
-
-                if (!isExecuting) yield break;
-                if (!IsGrounded()) { FailSequence(); yield break; }
+                if (!CheckGameState()) yield break;
             }
 
             HighlightIcon(commandSequencePanel, index, false);
             index++;
         }
-
         isExecuting = false;
-        // (선택) 실행이 무사히 다 끝나면 카메라를 돌릴지, 성공 패널 뜰때까지 유지할지 결정
-        // 여기서는 성공 패널을 봐야 하므로 카메라를 유지합니다.
     }
 
-    IEnumerator ProcessSingleCommand(CommandType cmd)
+    IEnumerator ProcessMove(CommandType cmd)
     {
-        soundManager?.PlayStep();
+        SoundManager.Instance?.PlayStep();
         switch (cmd)
         {
             case CommandType.Forward: yield return StartCoroutine(MoveForward()); break;
@@ -299,19 +237,20 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void FailSequence()
+    private bool CheckGameState()
     {
-        Debug.Log("실패!");
-        soundManager?.PlayFall();
-        // 실패 시 리셋하면 카메라도 0번으로 돌아갑니다. (ResetGame -> ResetPlayer -> SetCamera(0) 호출 안함)
-        // 실패 후 자동 복귀를 원하면 아래 ResetPlayer() 호출.
-        // 사용자가 '다시하기' 버튼을 눌러야 돌아가게 하고 싶으면 여기서는 카메라 안 바꿈.
-        ResetPlayerPosition(); // 위치만 돌려놓음 (카메라는 3인칭 유지)
+        if (!isExecuting) return false;
+        if (!IsGrounded()) { FailSequence(); return false; }
+        return true;
     }
 
-    // ---------------------------------------------------------
-    // 물리 이동
-    // ---------------------------------------------------------
+    private void FailSequence()
+    {
+        SoundManager.Instance?.PlayFall();
+        ResetPlayerPosition();
+    }
+
+    // --- 물리 이동 ---
     IEnumerator MoveForward()
     {
         RaycastHit hit;
@@ -319,65 +258,60 @@ public class PlayerController : MonoBehaviour
 
         if (hasObstacle && hit.collider.CompareTag(obstacleTag))
         {
-            soundManager?.PlayBump();
+            SoundManager.Instance?.PlayBump();
             Vector3 originalPos = transform.position;
-            Vector3 bumpTargetPos = originalPos - transform.forward * bumpForce;
-            float elapsedTime = 0;
-            while (elapsedTime < bumpDuration)
+            Vector3 bumpPos = originalPos - transform.forward * bumpForce;
+
+            for (float t = 0; t < bumpDuration; t += Time.deltaTime)
             {
-                transform.position = Vector3.Lerp(bumpTargetPos, originalPos, elapsedTime / bumpDuration);
-                elapsedTime += Time.deltaTime;
+                transform.position = Vector3.Lerp(bumpPos, originalPos, t / bumpDuration);
                 yield return null;
             }
             transform.position = originalPos;
             yield break;
         }
 
-        Vector3 startPos = transform.position;
-        Vector3 targetPos = transform.position + transform.forward * moveStep;
-        float elapsedTimeMove = 0;
-        while (elapsedTimeMove < moveDuration)
+        Vector3 start = transform.position;
+        Vector3 end = transform.position + transform.forward * moveStep;
+
+        for (float t = 0; t < moveDuration; t += Time.deltaTime)
         {
-            transform.position = Vector3.Lerp(startPos, targetPos, elapsedTimeMove / moveDuration);
-            elapsedTimeMove += Time.deltaTime;
+            transform.position = Vector3.Lerp(start, end, t / moveDuration);
             yield return null;
         }
-        transform.position = targetPos;
+        transform.position = end;
     }
 
     IEnumerator Turn(float angle)
     {
-        Quaternion startRot = transform.rotation;
-        Quaternion targetRot = transform.rotation * Quaternion.Euler(0, angle, 0);
-        float elapsedTime = 0;
-        while (elapsedTime < turnDuration)
+        Quaternion start = transform.rotation;
+        Quaternion end = transform.rotation * Quaternion.Euler(0, angle, 0);
+
+        for (float t = 0; t < turnDuration; t += Time.deltaTime)
         {
-            transform.rotation = Quaternion.Slerp(startRot, targetRot, elapsedTime / turnDuration);
-            elapsedTime += Time.deltaTime;
+            transform.rotation = Quaternion.Slerp(start, end, t / turnDuration);
             yield return null;
         }
-        transform.rotation = targetRot;
+        transform.rotation = end;
     }
 
-    bool IsGrounded()
-    {
-        return Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, roadLayer);
-    }
+    bool IsGrounded() => Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, roadLayer);
 
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("EndPoint") && isExecuting)
         {
-            soundManager?.PlaySuccess();
-            if (successPanel != null) successPanel.SetActive(true);
+            SoundManager.Instance?.PlaySuccess();
+            successPanel?.SetActive(true);
             StopAllCoroutines();
             isExecuting = false;
         }
     }
 
-    // ---------------------------------------------------------
-    // UI 업데이트
-    // ---------------------------------------------------------
+    #endregion
+
+    #region UI 업데이트
+
     private void UpdateIcons(GameObject panel, List<CommandType> list)
     {
         if (panel == null || commandSlotPrefab == null) return;
@@ -394,22 +328,12 @@ public class PlayerController : MonoBehaviour
             {
                 switch (cmd)
                 {
-                    case CommandType.Forward:
-                        img.sprite = forwardIcon;
-                        break;
-                    case CommandType.TurnRight:
-                        img.sprite = rightIcon;
-                        break;
-                    case CommandType.TurnLeft:
-                        img.sprite = leftIcon;
-                        break;
+                    case CommandType.Forward: img.sprite = forwardIcon; break;
+                    case CommandType.TurnRight: img.sprite = rightIcon; break;
+                    case CommandType.TurnLeft: img.sprite = leftIcon; break;
                     case CommandType.Loop:
                         img.sprite = loopIcon;
-                        // Loop 아이콘 너비 2배 설정
-                        if (rect != null)
-                        {
-                            rect.sizeDelta = new Vector2(rect.sizeDelta.x * 2f, rect.sizeDelta.y);
-                        }
+                        if (rect != null) rect.sizeDelta = new Vector2(rect.sizeDelta.x * 2f, rect.sizeDelta.y);
                         break;
                 }
                 img.color = (img.sprite != null) ? Color.white : Color.gray;
@@ -421,17 +345,23 @@ public class PlayerController : MonoBehaviour
     {
         if (panel == null || index < 0 || index >= panel.transform.childCount) return;
         Transform tr = panel.transform.GetChild(index);
-
-        // 하이라이트 시 크기 변경
-        if (highlight)
-        {
-            // 원래 크기(loop는 2배 등)를 고려하려면 좀 더 복잡하지만, 
-            // 단순하게 전체 스케일을 키우는 방식 사용
-            tr.localScale = Vector3.one * highlightScale;
-        }
-        else
-        {
-            tr.localScale = Vector3.one;
-        }
+        tr.localScale = highlight ? Vector3.one * highlightScale : Vector3.one;
     }
+
+    private int GetCurrentCost()
+    {
+        int total = 0;
+        foreach (var cmd in mainCommandList) total += (cmd == CommandType.Loop) ? 2 : 1;
+        return total;
+    }
+
+    private void UpdateLimitText()
+    {
+        if (limitText == null) return;
+        int current = GetCurrentCost();
+        limitText.text = $"{current} / {maxCommandCost}";
+        limitText.color = (current >= maxCommandCost) ? Color.red : Color.white;
+    }
+
+    #endregion
 }

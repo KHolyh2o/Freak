@@ -532,6 +532,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8973894942797700748, guid: 94bce5f0503eef34eba05cc1e3d6319b, type: 3}
   m_PrefabInstance: {fileID: 268749032}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &309899396 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 5250024711897482389, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+  m_PrefabInstance: {fileID: 1400489055}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &409411493
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1293,6 +1298,22 @@ PrefabInstance:
       propertyPath: target
       value: 
       objectReference: {fileID: 249243251}
+    - target: {fileID: 7594869969687318652, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: offset.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7594869969687318652, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: offset.z
+      value: -2
+      objectReference: {fileID: 0}
+    - target: {fileID: 7594869969687318652, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: fixedXRotation
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 7594869969687318652, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 309899396}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

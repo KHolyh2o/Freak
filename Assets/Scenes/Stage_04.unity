@@ -574,7 +574,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
       propertyPath: maxCommandCost
-      value: 20
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
       propertyPath: loopRepeatCount

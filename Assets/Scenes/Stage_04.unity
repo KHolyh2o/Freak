@@ -547,7 +547,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
       propertyPath: maxCommandCost
-      value: 40
+      value: 11
       objectReference: {fileID: 0}
     - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
       propertyPath: loopRepeatCount
@@ -1242,6 +1242,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: CameraManager
       objectReference: {fileID: 0}
+    - target: {fileID: 3295191515801553079, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 4.39
+      objectReference: {fileID: 0}
+    - target: {fileID: 3295191515801553079, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -2.38
+      objectReference: {fileID: 0}
     - target: {fileID: 3627327656516388616, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.2
@@ -1253,6 +1261,26 @@ PrefabInstance:
     - target: {fileID: 3627327656516388616, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
       propertyPath: m_LocalPosition.z
       value: -3.67
+      objectReference: {fileID: 0}
+    - target: {fileID: 4690172407747608657, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4690172407747608657, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4690172407747608657, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4690172407747608657, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4690172407747608657, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 180
       objectReference: {fileID: 0}
     - target: {fileID: 5108960526915098521, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
       propertyPath: m_LocalPosition.x

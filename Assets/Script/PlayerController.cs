@@ -30,6 +30,7 @@ public class PlayerController : MonoBehaviour
     public Sprite rightIcon;
     public Sprite leftIcon;
     public Sprite loopIcon;
+    public Sprite emptySlotSprite;
 
     [Header("오브젝트 연결")]
     public GameObject startBox;
@@ -53,9 +54,17 @@ public class PlayerController : MonoBehaviour
     // --- 매니저 참조 ---
     private CameraSwitcher cameraSwitcher;
 
+    private float defaultSlotWidth;
+
     void Start()
     {
         if (startBox == null) return;
+
+        if (commandSlotPrefab != null)
+        {
+            RectTransform rect = commandSlotPrefab.GetComponent<RectTransform>();
+            if (rect != null) defaultSlotWidth = rect.sizeDelta.x;
+        }
 
         // 시작 위치 보정 (높이값 1.33f)
         startPosition = new Vector3(startBox.transform.position.x, startBox.transform.position.y + 1.33f, startBox.transform.position.z);
@@ -170,12 +179,35 @@ public class PlayerController : MonoBehaviour
     }
 
     // (★ 누락되었던 ResetPlayer 함수 복구)
+    // (★ 수정된 함수)
     private void ResetPlayer()
     {
         ResetPlayerPosition();
         mainCommandList.Clear();
-        UpdateIcons(commandSequencePanel, mainCommandList);
+
+        // 1. 메인 패널 초기화: 최대 코스트만큼 빈 슬롯 미리 생성
+        if (commandSequencePanel != null && commandSlotPrefab != null)
+        {
+            // 기존 것 싹 지우고
+            foreach (Transform child in commandSequencePanel.transform) Destroy(child.gameObject);
+
+            // 최대 코스트만큼 빈 슬롯 생성
+            for (int i = 0; i < maxCommandCost; i++)
+            {
+                GameObject slot = Instantiate(commandSlotPrefab, commandSequencePanel.transform);
+                Image img = slot.GetComponent<Image>();
+                if (img != null && emptySlotSprite != null)
+                {
+                    img.sprite = emptySlotSprite; // 빈 이미지로 설정
+                }
+            }
+        }
+
+        // 루프 팝업 패널은 기존 방식(리스트만큼만 표시) 유지
+        UpdateIcons(loopSequencePanel, loopCommandConfig);
+
         UpdateLimitText();
+        cameraSwitcher?.SetSpecificCamera(0);
     }
 
     private void ResetPlayerPosition()
@@ -312,31 +344,87 @@ public class PlayerController : MonoBehaviour
 
     #region UI 업데이트
 
+    // ---------------------------------------------------------
+    // 6. UI 업데이트 (빈 슬롯 기능 + Loop 크기 조절 포함)
+    // ---------------------------------------------------------
     private void UpdateIcons(GameObject panel, List<CommandType> list)
     {
         if (panel == null || commandSlotPrefab == null) return;
 
-        foreach (Transform child in panel.transform) Destroy(child.gameObject);
-
-        foreach (CommandType cmd in list)
+        // A. 메인 커맨드 패널인 경우 (미리 만들어진 슬롯을 교체하는 방식)
+        if (panel == commandSequencePanel)
         {
-            GameObject slot = Instantiate(commandSlotPrefab, panel.transform);
-            Image img = slot.GetComponent<Image>();
-            RectTransform rect = slot.GetComponent<RectTransform>();
-
-            if (img != null)
+            int cmdIndex = 0;
+            // 패널에 있는 모든 슬롯(자식)을 순회하며 업데이트
+            for (int i = 0; i < panel.transform.childCount; i++)
             {
-                switch (cmd)
+                Transform child = panel.transform.GetChild(i);
+                Image img = child.GetComponent<Image>();
+                RectTransform rect = child.GetComponent<RectTransform>();
+
+                if (img == null || rect == null) continue;
+
+                // 리스트에 명령이 남아있다면 -> 해당 아이콘으로 교체
+                if (cmdIndex < list.Count)
                 {
-                    case CommandType.Forward: img.sprite = forwardIcon; break;
-                    case CommandType.TurnRight: img.sprite = rightIcon; break;
-                    case CommandType.TurnLeft: img.sprite = leftIcon; break;
-                    case CommandType.Loop:
-                        img.sprite = loopIcon;
-                        if (rect != null) rect.sizeDelta = new Vector2(rect.sizeDelta.x * 2f, rect.sizeDelta.y);
-                        break;
+                    CommandType cmd = list[cmdIndex];
+                    switch (cmd)
+                    {
+                        case CommandType.Forward:
+                            img.sprite = forwardIcon;
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                            break;
+                        case CommandType.TurnRight:
+                            img.sprite = rightIcon;
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                            break;
+                        case CommandType.TurnLeft:
+                            img.sprite = leftIcon;
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                            break;
+                        case CommandType.Loop:
+                            img.sprite = loopIcon;
+                            // Loop는 너비 2배
+                            rect.sizeDelta = new Vector2(defaultSlotWidth * 2f, rect.sizeDelta.y);
+                            break;
+                    }
+                    img.color = Color.white;
+                    cmdIndex++; // 다음 명령으로 이동
                 }
-                img.color = (img.sprite != null) ? Color.white : Color.gray;
+                // 리스트보다 더 뒤쪽 슬롯이라면 -> 빈 슬롯 이미지로 복구
+                else
+                {
+                    img.sprite = emptySlotSprite;
+                    rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); // 너비 원상복구
+                    img.color = Color.white;
+                }
+            }
+        }
+        // B. 루프 팝업 패널인 경우 (기존 방식 유지: 지우고 새로 생성)
+        else
+        {
+            foreach (Transform child in panel.transform) Destroy(child.gameObject);
+
+            foreach (CommandType cmd in list)
+            {
+                GameObject slot = Instantiate(commandSlotPrefab, panel.transform);
+                Image img = slot.GetComponent<Image>();
+                RectTransform rect = slot.GetComponent<RectTransform>();
+
+                if (img != null)
+                {
+                    switch (cmd)
+                    {
+                        case CommandType.Forward: img.sprite = forwardIcon; break;
+                        case CommandType.TurnRight: img.sprite = rightIcon; break;
+                        case CommandType.TurnLeft: img.sprite = leftIcon; break;
+                        case CommandType.Loop:
+                            img.sprite = loopIcon;
+                            if (rect != null) rect.sizeDelta = new Vector2(rect.sizeDelta.x * 2f, rect.sizeDelta.y);
+                            break;
+                    }
+                    img.color = (img.sprite != null) ? Color.white : Color.gray;
+                }
             }
         }
     }

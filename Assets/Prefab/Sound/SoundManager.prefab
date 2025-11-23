@@ -44,7 +44,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.5
+  m_Volume: 0.1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -180,10 +180,12 @@ MonoBehaviour:
   executeButtonSound: {fileID: 8300000, guid: 02852c7722b669645a5fa8536e8d28e4, type: 3}
   resetButtonSound: {fileID: 8300000, guid: 02852c7722b669645a5fa8536e8d28e4, type: 3}
   cameraButtonSound: {fileID: 8300000, guid: 02852c7722b669645a5fa8536e8d28e4, type: 3}
+  loopButtonSound: {fileID: 0}
   stepSound: {fileID: 8300000, guid: 496818022efd9de488f7cf08d912ffb1, type: 3}
   fallSound: {fileID: 8300000, guid: 780035b0248a6714ca7e5257114cb8e3, type: 3}
   successSound: {fileID: 8300000, guid: 5ba80b343ba6e4a43b3cbf9371f7e950, type: 3}
   bumpSound: {fileID: 8300000, guid: 1070d40b7fa3a7c4f89368f4d52bc99f, type: 3}
+  puzzleSound: {fileID: 0}
   bgmClip: {fileID: 8300000, guid: 14c3b6977ad3a204c8455764ee20d209, type: 3}
 --- !u!1 &9006364390640016607
 GameObject:
@@ -229,7 +231,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.1
+  m_Volume: 0.02
   m_Pitch: 1
   Loop: 1
   Mute: 0

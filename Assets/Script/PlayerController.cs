@@ -52,11 +52,13 @@ public class PlayerController : MonoBehaviour
     private TextMeshProUGUI limitText;
 
     // --- 매니저 참조 ---
+    private SoundManager soundManager;
     private CameraSwitcher cameraSwitcher;
 
     private float defaultSlotWidth;
 
-    void Start()
+    // Start 대신 Awake를 사용합니다.
+    void Awake()
     {
         if (startBox == null) return;
 
@@ -66,13 +68,19 @@ public class PlayerController : MonoBehaviour
             if (rect != null) defaultSlotWidth = rect.sizeDelta.x;
         }
 
-        // 시작 위치 보정 (높이값 1.33f)
+        // 시작 위치 및 회전 저장 (InitializeUI보다 먼저 실행됨)
         startPosition = new Vector3(startBox.transform.position.x, startBox.transform.position.y + 1.33f, startBox.transform.position.z);
         startRotation = transform.rotation;
+    }
 
+    void Start()
+    {
+        // Awake에서 위치를 잡았으므로 Start에서는 적용만 해도 되고, 생략해도 됩니다.
         transform.position = startPosition;
         transform.rotation = startRotation;
 
+        // 매니저 찾기는 Start에 두는 것이 안전합니다.
+        soundManager = FindObjectOfType<SoundManager>();
         cameraSwitcher = FindObjectOfType<CameraSwitcher>();
     }
 

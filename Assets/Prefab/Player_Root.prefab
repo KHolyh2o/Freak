@@ -62,10 +62,10 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   obstacleTag: Obstacle
-  forwardIcon: {fileID: 21300000, guid: 6050c5ead89b19a4e882acf871b7f2a3, type: 3}
-  rightIcon: {fileID: 21300000, guid: d2a68d39b6cb1244fb9d19ff4a09833d, type: 3}
-  leftIcon: {fileID: 21300000, guid: b130ba854be66b549bc3a4ac672040fd, type: 3}
-  loopIcon: {fileID: 0}
+  forwardIcon: {fileID: 21300000, guid: 6e2ffa87ad0b5ae41aa592f8131374fb, type: 3}
+  rightIcon: {fileID: 21300000, guid: ee462a9e27ed1474795e86d576a430c8, type: 3}
+  leftIcon: {fileID: 21300000, guid: 2b2b3f61d03e8cf4492759b83e0949ce, type: 3}
+  loopIcon: {fileID: 21300000, guid: 18d6dbcf5d5df2b4d8738b9b70113e80, type: 3}
   emptySlotSprite: {fileID: 21300000, guid: b62c78ac72a88a54fb49574c14073c9d, type: 3}
   startBox: {fileID: 2757185673320681108, guid: 37db4f41756348c4092a5893b77bea4f, type: 3}
 --- !u!65 &7146105599319871837

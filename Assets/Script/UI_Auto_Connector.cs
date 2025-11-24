@@ -12,7 +12,10 @@ public class UI_Auto_Connector : MonoBehaviour
     public GameObject loopConfigPopup;
     public TextMeshProUGUI limitText;
 
-    [Header("퍼즈 메뉴 UI")] // (★ 복구됨)
+    // (★ 추가된 변수) 게임 중 UI 묶음
+    public GameObject inGameUIGroup;
+
+    [Header("퍼즈 메뉴 UI")]
     public GameObject pausePanel;
     public Button settingsButton;
     public Button resumeButton;
@@ -31,15 +34,25 @@ public class UI_Auto_Connector : MonoBehaviour
     {
         var player = FindObjectOfType<PlayerController>();
         var camSwitcher = FindObjectOfType<CameraSwitcher>();
-        var gameManager = FindObjectOfType<GameManager>(); // (★ 복구됨)
-        var sceneController = FindObjectOfType<SceneController>(); // (★ 복구됨)
+        var gameManager = FindObjectOfType<GameManager>();
+        var sceneController = FindObjectOfType<SceneController>();
         var sm = SoundManager.Instance;
 
         // --- 1. 플레이어 연결 ---
         if (player != null)
         {
-            player.InitializeUI(commandSequencePanel, loopSequencePanel, commandSlotPrefab, successPanel, loopConfigPopup, limitText);
+            // (★ 수정됨: inGameUIGroup을 7번째 인자로 전달)
+            player.InitializeUI(
+                commandSequencePanel,
+                loopSequencePanel,
+                commandSlotPrefab,
+                successPanel,
+                loopConfigPopup,
+                limitText,
+                inGameUIGroup // 여기!
+            );
 
+            // ... (버튼 연결 코드는 그대로) ...
             forwardButton.onClick.RemoveAllListeners();
             forwardButton.onClick.AddListener(() => { player.AddCommand_Forward(); });
 
@@ -55,7 +68,6 @@ public class UI_Auto_Connector : MonoBehaviour
             if (resetButton != null)
             {
                 resetButton.onClick.RemoveAllListeners();
-                // 리셋 버튼은 GameManager의 재시작 기능을 쓰는 게 더 안전함 (퍼즈 해제 등을 위해)
                 if (gameManager != null)
                 {
                     resetButton.onClick.AddListener(() => { gameManager.RestartLevel(); sm?.PlayResetClick(); });
@@ -86,32 +98,29 @@ public class UI_Auto_Connector : MonoBehaviour
             cameraButton.onClick.AddListener(() => { camSwitcher.SwitchCamera(); sm?.PlayCameraClick(); });
         }
 
-        // --- 3. 퍼즈 시스템 연결 (★ 복구됨) ---
+        // --- 3. 퍼즈 시스템 연결 ---
         if (gameManager != null)
         {
             gameManager.SetPausePanel(pausePanel);
 
-            // 설정 버튼 -> 일시정지
             if (settingsButton != null)
             {
                 settingsButton.onClick.RemoveAllListeners();
                 settingsButton.onClick.AddListener(() => { gameManager.PauseGame(); sm?.PlayCommandClick(); });
             }
 
-            // 돌아가기 버튼 -> 재개
             if (resumeButton != null)
             {
                 resumeButton.onClick.RemoveAllListeners();
                 resumeButton.onClick.AddListener(() => { gameManager.ResumeGame(); sm?.PlayCommandClick(); });
             }
 
-            // 스테이지 선택 -> 씬 이동 (SceneController 사용)
             if (stageSelectButton != null && sceneController != null)
             {
                 stageSelectButton.onClick.RemoveAllListeners();
                 stageSelectButton.onClick.AddListener(() =>
                 {
-                    Time.timeScale = 1f; // 시간 정상화
+                    Time.timeScale = 1f;
                     sceneController.ChangeScene("Main");
                     sm?.PlayCommandClick();
                 });

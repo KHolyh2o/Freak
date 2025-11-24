@@ -9,14 +9,14 @@ public class PlayerController : MonoBehaviour
     public enum CommandType { Forward, TurnRight, TurnLeft, Loop }
 
     [Header("설정")]
-    public float highlightScale = 1.2f; // 아이콘 확대 배율
-    public int maxCommandCost = 10;     // 스테이지 최대 코스트
-    public int loopRepeatCount = 1;     // 루프 반복 횟수
-    public int maxLoopConfigLimit = 4;  // 루프 설정 최대 개수
+    public float highlightScale = 1.2f; 
+    public int maxCommandCost = 10;     
+    public int loopRepeatCount = 1;     
+    public int maxLoopConfigLimit = 4;  
 
     [Header("이동 및 감지")]
     public float moveStep = 1.0f;
-    public float turnStep = 90.0f;      // (★ 누락되었던 변수 복구)
+    public float turnStep = 90.0f;      
     public float moveDuration = 0.5f;
     public float turnDuration = 0.3f;
     public float bumpForce = 0.2f;
@@ -38,7 +38,7 @@ public class PlayerController : MonoBehaviour
     // --- 내부 상태 변수 ---
     private List<CommandType> mainCommandList = new List<CommandType>();
     private List<CommandType> loopCommandConfig = new List<CommandType>();
-
+    
     private Vector3 startPosition;
     private Quaternion startRotation;
     private bool isExecuting = false;
@@ -54,10 +54,10 @@ public class PlayerController : MonoBehaviour
     // --- 매니저 참조 ---
     private SoundManager soundManager;
     private CameraSwitcher cameraSwitcher;
-
     private float defaultSlotWidth;
 
-    // Start 대신 Awake를 사용합니다.
+    private GameObject inGameUIGroup;
+
     void Awake()
     {
         if (startBox == null) return;
@@ -68,41 +68,45 @@ public class PlayerController : MonoBehaviour
             if (rect != null) defaultSlotWidth = rect.sizeDelta.x;
         }
 
-        // 시작 위치 및 회전 저장 (InitializeUI보다 먼저 실행됨)
         startPosition = new Vector3(startBox.transform.position.x, startBox.transform.position.y + 1.33f, startBox.transform.position.z);
         startRotation = transform.rotation;
     }
 
     void Start()
     {
-        // Awake에서 위치를 잡았으므로 Start에서는 적용만 해도 되고, 생략해도 됩니다.
         transform.position = startPosition;
         transform.rotation = startRotation;
 
-        // 매니저 찾기는 Start에 두는 것이 안전합니다.
         soundManager = FindObjectOfType<SoundManager>();
         cameraSwitcher = FindObjectOfType<CameraSwitcher>();
     }
 
-    // UI_Auto_Connector에서 호출하여 UI 연결
-    public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt)
+    // (★ 수정된 부분) 
+    // 매개변수가 총 7개여야 합니다! (마지막에 GameObject inGameUI 추가됨)
+    public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopConfig, TextMeshProUGUI limitTxt, GameObject inGameUI)
     {
         this.commandSequencePanel = mainPanel;
         this.loopSequencePanel = loopPanel;
         this.commandSlotPrefab = slotPrefab;
         this.successPanel = successPnl;
-        this.loopConfigPopup = loopPopup;
+        this.loopConfigPopup = loopConfig;
         this.limitText = limitTxt;
 
-        ResetPlayer(); // 초기화 실행
+        // (★ 추가) 게임 중 UI 그룹 연결
+        // 이 변수(inGameUIGroup)가 스크립트 상단에 선언되어 있어야 합니다!
+        // private GameObject inGameUIGroup; 
+        // 만약 선언이 안 되어 있다면 스크립트 맨 위 변수 선언부에 추가하세요.
+        this.inGameUIGroup = inGameUI;
+
+        ResetPlayer();
     }
 
-    #region 버튼 기능 (통합)
+    #region 버튼 기능
 
-    public void AddCommand_Forward() => TryAddCommand(CommandType.Forward);
+    public void AddCommand_Forward()   => TryAddCommand(CommandType.Forward);
     public void AddCommand_TurnRight() => TryAddCommand(CommandType.TurnRight);
-    public void AddCommand_TurnLeft() => TryAddCommand(CommandType.TurnLeft);
-
+    public void AddCommand_TurnLeft()  => TryAddCommand(CommandType.TurnLeft);
+    
     public void AddCommand_Loop_ToMain()
     {
         if (isExecuting) return;
@@ -112,7 +116,6 @@ public class PlayerController : MonoBehaviour
     private void TryAddCommand(CommandType type)
     {
         if (isExecuting) return;
-
         if (IsLoopPopupActive()) AddToLoopConfig(type);
         else AddToMainList(type);
     }
@@ -122,7 +125,7 @@ public class PlayerController : MonoBehaviour
         int cost = (type == CommandType.Loop) ? 2 : 1;
         if (GetCurrentCost() + cost > maxCommandCost)
         {
-            SoundManager.Instance?.PlayBump();
+            SoundManager.Instance?.PlayBump(); 
             return;
         }
 
@@ -176,47 +179,44 @@ public class PlayerController : MonoBehaviour
     {
         if (isExecuting) return;
         ResetPlayerPosition();
-        cameraSwitcher?.SetSpecificCamera(2); // 3인칭 카메라
+        cameraSwitcher?.SetSpecificCamera(2);
         StartCoroutine(ExecuteSequence());
     }
 
     public void ResetGame()
     {
         ResetPlayer();
-        cameraSwitcher?.SetSpecificCamera(0); // 메인 카메라로 복귀
+        cameraSwitcher?.SetSpecificCamera(0);
     }
 
-    // (★ 누락되었던 ResetPlayer 함수 복구)
-    // (★ 수정된 함수)
     private void ResetPlayer()
     {
         ResetPlayerPosition();
         mainCommandList.Clear();
 
-        // 1. 메인 패널 초기화: 최대 코스트만큼 빈 슬롯 미리 생성
+        // 메인 패널 초기화 (빈 슬롯 생성)
         if (commandSequencePanel != null && commandSlotPrefab != null)
         {
-            // 기존 것 싹 지우고
             foreach (Transform child in commandSequencePanel.transform) Destroy(child.gameObject);
 
-            // 최대 코스트만큼 빈 슬롯 생성
             for (int i = 0; i < maxCommandCost; i++)
             {
                 GameObject slot = Instantiate(commandSlotPrefab, commandSequencePanel.transform);
                 Image img = slot.GetComponent<Image>();
                 if (img != null && emptySlotSprite != null)
                 {
-                    img.sprite = emptySlotSprite; // 빈 이미지로 설정
+                    img.sprite = emptySlotSprite;
+                    img.color = Color.white;
                 }
+                
+                RectTransform rect = slot.GetComponent<RectTransform>();
+                if (rect != null) rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
             }
         }
 
-        // 루프 팝업 패널은 기존 방식(리스트만큼만 표시) 유지
         UpdateIcons(loopSequencePanel, loopCommandConfig);
-
         UpdateLimitText();
-        cameraSwitcher?.SetSpecificCamera(0);
-    }
+    } // (★ 여기가 닫혀야 합니다!)
 
     private void ResetPlayerPosition()
     {
@@ -225,6 +225,8 @@ public class PlayerController : MonoBehaviour
         transform.position = startPosition;
         transform.rotation = startRotation;
         successPanel?.SetActive(false);
+
+        if (inGameUIGroup != null) inGameUIGroup.SetActive(true);
     }
 
     #endregion
@@ -279,7 +281,7 @@ public class PlayerController : MonoBehaviour
 
     private bool CheckGameState()
     {
-        if (!isExecuting) return false;
+        if (!isExecuting) return false; 
         if (!IsGrounded()) { FailSequence(); return false; }
         return true;
     }
@@ -287,7 +289,7 @@ public class PlayerController : MonoBehaviour
     private void FailSequence()
     {
         SoundManager.Instance?.PlayFall();
-        ResetPlayerPosition();
+        ResetPlayerPosition(); 
     }
 
     // --- 물리 이동 ---
@@ -301,7 +303,7 @@ public class PlayerController : MonoBehaviour
             SoundManager.Instance?.PlayBump();
             Vector3 originalPos = transform.position;
             Vector3 bumpPos = originalPos - transform.forward * bumpForce;
-
+            
             for (float t = 0; t < bumpDuration; t += Time.deltaTime)
             {
                 transform.position = Vector3.Lerp(bumpPos, originalPos, t / bumpDuration);
@@ -313,7 +315,7 @@ public class PlayerController : MonoBehaviour
 
         Vector3 start = transform.position;
         Vector3 end = transform.position + transform.forward * moveStep;
-
+        
         for (float t = 0; t < moveDuration; t += Time.deltaTime)
         {
             transform.position = Vector3.Lerp(start, end, t / moveDuration);
@@ -343,6 +345,7 @@ public class PlayerController : MonoBehaviour
         {
             SoundManager.Instance?.PlaySuccess();
             successPanel?.SetActive(true);
+            if (inGameUIGroup != null) inGameUIGroup.SetActive(false); 
             StopAllCoroutines();
             isExecuting = false;
         }
@@ -352,18 +355,14 @@ public class PlayerController : MonoBehaviour
 
     #region UI 업데이트
 
-    // ---------------------------------------------------------
-    // 6. UI 업데이트 (빈 슬롯 기능 + Loop 크기 조절 포함)
-    // ---------------------------------------------------------
     private void UpdateIcons(GameObject panel, List<CommandType> list)
     {
         if (panel == null || commandSlotPrefab == null) return;
 
-        // A. 메인 커맨드 패널인 경우 (미리 만들어진 슬롯을 교체하는 방식)
+        // A. 메인 패널
         if (panel == commandSequencePanel)
         {
             int cmdIndex = 0;
-            // 패널에 있는 모든 슬롯(자식)을 순회하며 업데이트
             for (int i = 0; i < panel.transform.childCount; i++)
             {
                 Transform child = panel.transform.GetChild(i);
@@ -372,53 +371,48 @@ public class PlayerController : MonoBehaviour
 
                 if (img == null || rect == null) continue;
 
-                // 리스트에 명령이 남아있다면 -> 해당 아이콘으로 교체
                 if (cmdIndex < list.Count)
                 {
                     CommandType cmd = list[cmdIndex];
                     switch (cmd)
                     {
-                        case CommandType.Forward:
-                            img.sprite = forwardIcon;
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                        case CommandType.Forward: 
+                            img.sprite = forwardIcon; 
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); 
                             break;
-                        case CommandType.TurnRight:
-                            img.sprite = rightIcon;
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                        case CommandType.TurnRight: 
+                            img.sprite = rightIcon; 
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); 
                             break;
-                        case CommandType.TurnLeft:
-                            img.sprite = leftIcon;
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                        case CommandType.TurnLeft: 
+                            img.sprite = leftIcon; 
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); 
                             break;
                         case CommandType.Loop:
                             img.sprite = loopIcon;
-                            // Loop는 너비 2배
                             rect.sizeDelta = new Vector2(defaultSlotWidth * 2f, rect.sizeDelta.y);
                             break;
                     }
                     img.color = Color.white;
-                    cmdIndex++; // 다음 명령으로 이동
+                    cmdIndex++;
                 }
-                // 리스트보다 더 뒤쪽 슬롯이라면 -> 빈 슬롯 이미지로 복구
                 else
                 {
                     img.sprite = emptySlotSprite;
-                    rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); // 너비 원상복구
+                    rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
                     img.color = Color.white;
                 }
             }
         }
-        // B. 루프 팝업 패널인 경우 (기존 방식 유지: 지우고 새로 생성)
+        // B. 팝업 패널
         else
         {
             foreach (Transform child in panel.transform) Destroy(child.gameObject);
-
             foreach (CommandType cmd in list)
             {
                 GameObject slot = Instantiate(commandSlotPrefab, panel.transform);
                 Image img = slot.GetComponent<Image>();
                 RectTransform rect = slot.GetComponent<RectTransform>();
-
                 if (img != null)
                 {
                     switch (cmd)
@@ -428,10 +422,10 @@ public class PlayerController : MonoBehaviour
                         case CommandType.TurnLeft: img.sprite = leftIcon; break;
                         case CommandType.Loop:
                             img.sprite = loopIcon;
-                            if (rect != null) rect.sizeDelta = new Vector2(rect.sizeDelta.x * 2f, rect.sizeDelta.y);
+                            if (rect != null) rect.sizeDelta = new Vector2(defaultSlotWidth * 2f, rect.sizeDelta.y);
                             break;
                     }
-                    img.color = (img.sprite != null) ? Color.white : Color.gray;
+                    img.color = Color.white;
                 }
             }
         }
@@ -456,7 +450,7 @@ public class PlayerController : MonoBehaviour
         if (limitText == null) return;
         int current = GetCurrentCost();
         limitText.text = $"{current} / {maxCommandCost}";
-        limitText.color = (current >= maxCommandCost) ? Color.red : Color.white;
+        limitText.color = (current >= maxCommandCost) ? Color.red : new Color(0f,0f,0f,0.5f) ;
     }
 
     #endregion

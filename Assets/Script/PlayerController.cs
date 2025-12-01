@@ -68,8 +68,22 @@ public class PlayerController : MonoBehaviour
             if (rect != null) defaultSlotWidth = rect.sizeDelta.x;
         }
 
-        startPosition = new Vector3(startBox.transform.position.x, startBox.transform.position.y + 1.33f, startBox.transform.position.z);
-        startRotation = transform.rotation;
+        // --- (수정된 부분) ---
+
+        // 1. 시작 위치 계산 (기존 동일)
+        startPosition = new Vector3(
+            startBox.transform.position.x,
+            startBox.transform.position.y + 1.33f,
+            startBox.transform.position.z
+        );
+
+        // 2. 시작 회전값: 내 회전값 대신 ★'StartBox의 회전값'★을 저장
+        startRotation = startBox.transform.rotation;
+
+        // 3. 지금 즉시 적용 (중요!)
+        // (게임 시작하자마자 바로 그 방향을 보게 만듦)
+        transform.position = startPosition;
+        transform.rotation = startRotation;
     }
 
     void Start()

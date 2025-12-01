@@ -12,7 +12,7 @@ public class UI_Auto_Connector : MonoBehaviour
     public GameObject loopConfigPopup;
     public TextMeshProUGUI limitText;
 
-    // (★ 추가된 변수) 게임 중 UI 묶음
+    // 게임 중 UI 묶음
     public GameObject inGameUIGroup;
 
     [Header("퍼즈 메뉴 UI")]
@@ -39,56 +39,10 @@ public class UI_Auto_Connector : MonoBehaviour
         var sm = SoundManager.Instance;
 
         // --- 1. 플레이어 연결 ---
+        // (중복 코드를 없애고 BindPlayer 함수를 호출합니다)
         if (player != null)
         {
-            // (★ 수정됨: inGameUIGroup을 7번째 인자로 전달)
-            player.InitializeUI(
-                commandSequencePanel,
-                loopSequencePanel,
-                commandSlotPrefab,
-                successPanel,
-                loopConfigPopup,
-                limitText,
-                inGameUIGroup // 여기!
-            );
-
-            // ... (버튼 연결 코드는 그대로) ...
-            forwardButton.onClick.RemoveAllListeners();
-            forwardButton.onClick.AddListener(() => { player.AddCommand_Forward(); });
-
-            rightButton.onClick.RemoveAllListeners();
-            rightButton.onClick.AddListener(() => { player.AddCommand_TurnRight(); });
-
-            leftButton.onClick.RemoveAllListeners();
-            leftButton.onClick.AddListener(() => { player.AddCommand_TurnLeft(); });
-
-            executeButton.onClick.RemoveAllListeners();
-            executeButton.onClick.AddListener(() => { player.ExecuteCommands(); sm?.PlayExecuteClick(); });
-
-            if (resetButton != null)
-            {
-                resetButton.onClick.RemoveAllListeners();
-                if (gameManager != null)
-                {
-                    resetButton.onClick.AddListener(() => { gameManager.RestartLevel(); sm?.PlayResetClick(); });
-                }
-                else
-                {
-                    resetButton.onClick.AddListener(() => { player.ResetGame(); sm?.PlayResetClick(); });
-                }
-            }
-
-            if (loopButton != null)
-            {
-                var handler = loopButton.GetComponent<MouseButtonHandler>();
-                if (handler == null) handler = loopButton.gameObject.AddComponent<MouseButtonHandler>();
-
-                handler.onLeftClick.RemoveAllListeners();
-                handler.onLeftClick.AddListener(player.AddCommand_Loop_ToMain);
-
-                handler.onRightClick.RemoveAllListeners();
-                handler.onRightClick.AddListener(player.OpenLoopConfigPopup);
-            }
+            BindPlayer(player);
         }
 
         // --- 2. 카메라 연결 ---
@@ -120,11 +74,93 @@ public class UI_Auto_Connector : MonoBehaviour
                 stageSelectButton.onClick.RemoveAllListeners();
                 stageSelectButton.onClick.AddListener(() =>
                 {
-                    Time.timeScale = 1f;
+                    Time.timeScale = 1f; // 시간 정상화
                     sceneController.ChangeScene("Main");
                     sm?.PlayCommandClick();
                 });
             }
+        }
+    }
+
+    // 외부(MapEditor) 또는 Start에서 호출하여 플레이어와 UI를 연결하는 함수
+    public void BindPlayer(PlayerController player)
+    {
+        if (player == null) return;
+
+        var sm = SoundManager.Instance;
+        var gameManager = FindObjectOfType<GameManager>();
+        var camSwitcher = FindObjectOfType<CameraSwitcher>(); // (★ 추가: 카메라 매니저 찾기)
+
+        // 1. 플레이어에게 StartBox 위치 강제 주입 (가장 중요!)
+        // (플레이어가 스스로 못 찾을 경우를 대비해, 여기서 확실하게 다시 찾아서 넣어줌)
+        if (player.startBox == null)
+        {
+            GameObject foundStart = GameObject.FindGameObjectWithTag("StartBox");
+            if (foundStart != null) player.startBox = foundStart;
+        }
+
+        // 2. UI 초기화 및 전달
+        // (이 함수 안에서 ResetPlayer가 호출되면서 위치가 잡힘)
+        player.InitializeUI(
+            commandSequencePanel,
+            loopSequencePanel,
+            commandSlotPrefab,
+            successPanel,
+            loopConfigPopup,
+            limitText,
+            inGameUIGroup
+        );
+
+        // 3. (★ 핵심) 3인칭 카메라에게 "이 플레이어를 따라가!"라고 알려주기
+        if (camSwitcher != null && camSwitcher.cameras.Length > 2)
+        {
+            // 3인칭 카메라(Element 2)를 찾아서
+            Camera thirdCam = camSwitcher.cameras[2];
+            // 그 부모나 본인에게 붙은 'ThirdPersonFollow' 스크립트를 찾음
+            ThirdPersonFollow follower = thirdCam.GetComponentInParent<ThirdPersonFollow>();
+
+            if (follower != null)
+            {
+                follower.target = player.transform; // 타겟을 새 플레이어로 교체!
+            }
+        }
+
+        // 4. 버튼 리스너 연결 (기존 코드 유지)
+        forwardButton.onClick.RemoveAllListeners();
+        forwardButton.onClick.AddListener(() => { player.AddCommand_Forward(); });
+
+        rightButton.onClick.RemoveAllListeners();
+        rightButton.onClick.AddListener(() => { player.AddCommand_TurnRight(); });
+
+        leftButton.onClick.RemoveAllListeners();
+        leftButton.onClick.AddListener(() => { player.AddCommand_TurnLeft(); });
+
+        executeButton.onClick.RemoveAllListeners();
+        executeButton.onClick.AddListener(() => { player.ExecuteCommands(); sm?.PlayExecuteClick(); });
+
+        if (resetButton != null)
+        {
+            resetButton.onClick.RemoveAllListeners();
+            if (gameManager != null)
+            {
+                resetButton.onClick.AddListener(() => { gameManager.RestartLevel(); sm?.PlayResetClick(); });
+            }
+            else
+            {
+                resetButton.onClick.AddListener(() => { player.ResetGame(); sm?.PlayResetClick(); });
+            }
+        }
+
+        if (loopButton != null)
+        {
+            var handler = loopButton.GetComponent<MouseButtonHandler>();
+            if (handler == null) handler = loopButton.gameObject.AddComponent<MouseButtonHandler>();
+
+            handler.onLeftClick.RemoveAllListeners();
+            handler.onLeftClick.AddListener(player.AddCommand_Loop_ToMain);
+
+            handler.onRightClick.RemoveAllListeners();
+            handler.onRightClick.AddListener(player.OpenLoopConfigPopup);
         }
     }
 }

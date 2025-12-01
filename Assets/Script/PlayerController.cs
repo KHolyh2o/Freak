@@ -8,40 +8,12 @@ public class PlayerController : MonoBehaviour
 {
     public enum CommandType { Forward, TurnRight, TurnLeft, Loop }
 
-    [Header("설정")]
-    public float highlightScale = 1.2f; 
-    public int maxCommandCost = 10;     
-    public int loopRepeatCount = 1;     
-    public int maxLoopConfigLimit = 4;  
+    [Header("UI 하이라이트 설정")]
+    public float highlightScale = 1.2f;
 
-    [Header("이동 및 감지")]
-    public float moveStep = 1.0f;
-    public float turnStep = 90.0f;      
-    public float moveDuration = 0.5f;
-    public float turnDuration = 0.3f;
-    public float bumpForce = 0.2f;
-    public float bumpDuration = 0.15f;
-    public float groundCheckDistance = 2.0f;
-    public LayerMask roadLayer;
-    public string obstacleTag = "Obstacle";
-
-    [Header("아이콘 리소스")]
-    public Sprite forwardIcon;
-    public Sprite rightIcon;
-    public Sprite leftIcon;
-    public Sprite loopIcon;
-    public Sprite emptySlotSprite;
-
-    [Header("오브젝트 연결")]
-    public GameObject startBox;
-
-    // --- 내부 상태 변수 ---
+    // --- 리스트 관리 ---
     private List<CommandType> mainCommandList = new List<CommandType>();
     private List<CommandType> loopCommandConfig = new List<CommandType>();
-    
-    private Vector3 startPosition;
-    private Quaternion startRotation;
-    private bool isExecuting = false;
 
     // --- UI 참조 ---
     private GameObject commandSequencePanel;
@@ -50,17 +22,58 @@ public class PlayerController : MonoBehaviour
     private GameObject successPanel;
     private GameObject loopConfigPopup;
     private TextMeshProUGUI limitText;
+    private GameObject inGameUIGroup;
 
-    // --- 매니저 참조 ---
+    // --- 아이콘 스프라이트 ---
+    [Header("아이콘 스프라이트")]
+    public Sprite forwardIcon;
+    public Sprite rightIcon;
+    public Sprite leftIcon;
+    public Sprite loopIcon;
+    public Sprite emptySlotSprite;
+
+    // --- 오브젝트 참조 ---
+    [Header("오브젝트 연결")]
+    public GameObject startBox;
+    public GameObject endPoint;
+
+    // --- 플레이어 상태 ---
+    private Vector3 startPosition;
+    private Quaternion startRotation;
+    private bool isExecuting = false;
+
+    // --- 이동 설정 ---
+    [Header("이동 설정")]
+    public float moveStep = 1.0f;
+    public float turnStep = 90.0f;
+    public float moveDuration = 0.5f;
+    public float turnDuration = 0.3f;
+    public float bumpForce = 0.2f;
+    public float bumpDuration = 0.15f;
+
+    // --- 감지 및 제한 설정 ---
+    [Header("감지 및 제한 설정")]
+    public LayerMask roadLayer;
+    public float groundCheckDistance = 2.0f;
+    public string obstacleTag = "Obstacle";
+
+    public int loopRepeatCount = 1;
+    public int maxLoopConfigLimit = 4;
+    public int maxCommandCost = 10;
+
+    // --- 매니저 ---
     private SoundManager soundManager;
     private CameraSwitcher cameraSwitcher;
     private float defaultSlotWidth;
 
-    private GameObject inGameUIGroup;
-
     void Awake()
     {
-        if (startBox == null) return;
+        // 1차 시도: 태그로 찾기
+        if (startBox == null)
+        {
+            GameObject foundStart = GameObject.FindGameObjectWithTag("StartBox");
+            if (foundStart != null) startBox = foundStart;
+        }
 
         if (commandSlotPrefab != null)
         {
@@ -68,59 +81,47 @@ public class PlayerController : MonoBehaviour
             if (rect != null) defaultSlotWidth = rect.sizeDelta.x;
         }
 
-        // --- (수정된 부분) ---
-
-        // 1. 시작 위치 계산 (기존 동일)
-        startPosition = new Vector3(
-            startBox.transform.position.x,
-            startBox.transform.position.y + 1.33f,
-            startBox.transform.position.z
-        );
-
-        // 2. 시작 회전값: 내 회전값 대신 ★'StartBox의 회전값'★을 저장
-        startRotation = startBox.transform.rotation;
-
-        // 3. 지금 즉시 적용 (중요!)
-        // (게임 시작하자마자 바로 그 방향을 보게 만듦)
-        transform.position = startPosition;
-        transform.rotation = startRotation;
+        // 일단 초기값 설정 (나중에 ResetPlayerPosition에서 덮어씌워짐)
+        if (startBox != null)
+        {
+            startPosition = new Vector3(startBox.transform.position.x, startBox.transform.position.y + 1.33f, startBox.transform.position.z);
+            startRotation = startBox.transform.rotation;
+        }
     }
 
     void Start()
     {
-        transform.position = startPosition;
-        transform.rotation = startRotation;
-
+        // 여기서는 이동하지 않음 (ResetPlayerPosition이 해줌)
         soundManager = FindObjectOfType<SoundManager>();
         cameraSwitcher = FindObjectOfType<CameraSwitcher>();
     }
 
-    // (★ 수정된 부분) 
-    // 매개변수가 총 7개여야 합니다! (마지막에 GameObject inGameUI 추가됨)
-    public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopConfig, TextMeshProUGUI limitTxt, GameObject inGameUI)
+    public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt, GameObject inGameUI)
     {
         this.commandSequencePanel = mainPanel;
         this.loopSequencePanel = loopPanel;
         this.commandSlotPrefab = slotPrefab;
         this.successPanel = successPnl;
-        this.loopConfigPopup = loopConfig;
+        this.loopConfigPopup = loopPopup;
         this.limitText = limitTxt;
-
-        // (★ 추가) 게임 중 UI 그룹 연결
-        // 이 변수(inGameUIGroup)가 스크립트 상단에 선언되어 있어야 합니다!
-        // private GameObject inGameUIGroup; 
-        // 만약 선언이 안 되어 있다면 스크립트 맨 위 변수 선언부에 추가하세요.
         this.inGameUIGroup = inGameUI;
+
+        if (commandSlotPrefab != null)
+        {
+            RectTransform rect = commandSlotPrefab.GetComponent<RectTransform>();
+            if (rect != null) defaultSlotWidth = rect.sizeDelta.x;
+        }
 
         ResetPlayer();
     }
 
-    #region 버튼 기능
-
-    public void AddCommand_Forward()   => TryAddCommand(CommandType.Forward);
+    // ---------------------------------------------------------
+    // 버튼 기능
+    // ---------------------------------------------------------
+    public void AddCommand_Forward() => TryAddCommand(CommandType.Forward);
     public void AddCommand_TurnRight() => TryAddCommand(CommandType.TurnRight);
-    public void AddCommand_TurnLeft()  => TryAddCommand(CommandType.TurnLeft);
-    
+    public void AddCommand_TurnLeft() => TryAddCommand(CommandType.TurnLeft);
+
     public void AddCommand_Loop_ToMain()
     {
         if (isExecuting) return;
@@ -139,10 +140,9 @@ public class PlayerController : MonoBehaviour
         int cost = (type == CommandType.Loop) ? 2 : 1;
         if (GetCurrentCost() + cost > maxCommandCost)
         {
-            SoundManager.Instance?.PlayBump(); 
+            SoundManager.Instance?.PlayBump();
             return;
         }
-
         mainCommandList.Add(type);
         UpdateIcons(commandSequencePanel, mainCommandList);
         UpdateLimitText();
@@ -156,18 +156,16 @@ public class PlayerController : MonoBehaviour
             SoundManager.Instance?.PlayBump();
             return;
         }
-
         loopCommandConfig.Add(type);
         UpdateIcons(loopSequencePanel, loopCommandConfig);
         SoundManager.Instance?.PlayCommandClick();
     }
 
-    #endregion
-
-    #region 팝업창 관리
-
     private bool IsLoopPopupActive() => loopConfigPopup != null && loopConfigPopup.activeSelf;
 
+    // ---------------------------------------------------------
+    // 팝업창 관리
+    // ---------------------------------------------------------
     public void OpenLoopConfigPopup()
     {
         if (isExecuting || loopConfigPopup == null) return;
@@ -185,14 +183,13 @@ public class PlayerController : MonoBehaviour
         SoundManager.Instance?.PlayResetClick();
     }
 
-    #endregion
-
-    #region 실행 및 리셋
-
+    // ---------------------------------------------------------
+    // 실행 및 리셋
+    // ---------------------------------------------------------
     public void ExecuteCommands()
     {
         if (isExecuting) return;
-        ResetPlayerPosition();
+        ResetPlayerPosition(); // 위치 리셋 (중요)
         cameraSwitcher?.SetSpecificCamera(2);
         StartCoroutine(ExecuteSequence());
     }
@@ -205,10 +202,9 @@ public class PlayerController : MonoBehaviour
 
     private void ResetPlayer()
     {
-        ResetPlayerPosition();
+        ResetPlayerPosition(); // 여기서 위치를 잡음
         mainCommandList.Clear();
 
-        // 메인 패널 초기화 (빈 슬롯 생성)
         if (commandSequencePanel != null && commandSlotPrefab != null)
         {
             foreach (Transform child in commandSequencePanel.transform) Destroy(child.gameObject);
@@ -222,7 +218,7 @@ public class PlayerController : MonoBehaviour
                     img.sprite = emptySlotSprite;
                     img.color = Color.white;
                 }
-                
+
                 RectTransform rect = slot.GetComponent<RectTransform>();
                 if (rect != null) rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
             }
@@ -230,23 +226,36 @@ public class PlayerController : MonoBehaviour
 
         UpdateIcons(loopSequencePanel, loopCommandConfig);
         UpdateLimitText();
-    } // (★ 여기가 닫혀야 합니다!)
+    }
 
+    // ★★★ 여기가 수정된 핵심 함수입니다! ★★★
     private void ResetPlayerPosition()
     {
         StopAllCoroutines();
         isExecuting = false;
+
+        // (★ 중요) 현재 연결된 StartBox 위치로 좌표를 다시 계산해서 갱신함
+        if (startBox != null)
+        {
+            startPosition = new Vector3(
+                startBox.transform.position.x,
+                startBox.transform.position.y + 1.33f,
+                startBox.transform.position.z
+            );
+            startRotation = startBox.transform.rotation;
+        }
+
+        // 계산된 위치로 이동
         transform.position = startPosition;
         transform.rotation = startRotation;
-        successPanel?.SetActive(false);
 
+        if (successPanel != null) successPanel.SetActive(false);
         if (inGameUIGroup != null) inGameUIGroup.SetActive(true);
     }
 
-    #endregion
-
-    #region 메인 로직 (코루틴)
-
+    // ---------------------------------------------------------
+    // 실행 로직
+    // ---------------------------------------------------------
     IEnumerator ExecuteSequence()
     {
         isExecuting = true;
@@ -295,7 +304,7 @@ public class PlayerController : MonoBehaviour
 
     private bool CheckGameState()
     {
-        if (!isExecuting) return false; 
+        if (!isExecuting) return false;
         if (!IsGrounded()) { FailSequence(); return false; }
         return true;
     }
@@ -303,7 +312,7 @@ public class PlayerController : MonoBehaviour
     private void FailSequence()
     {
         SoundManager.Instance?.PlayFall();
-        ResetPlayerPosition(); 
+        ResetPlayerPosition();
     }
 
     // --- 물리 이동 ---
@@ -317,7 +326,7 @@ public class PlayerController : MonoBehaviour
             SoundManager.Instance?.PlayBump();
             Vector3 originalPos = transform.position;
             Vector3 bumpPos = originalPos - transform.forward * bumpForce;
-            
+
             for (float t = 0; t < bumpDuration; t += Time.deltaTime)
             {
                 transform.position = Vector3.Lerp(bumpPos, originalPos, t / bumpDuration);
@@ -329,7 +338,7 @@ public class PlayerController : MonoBehaviour
 
         Vector3 start = transform.position;
         Vector3 end = transform.position + transform.forward * moveStep;
-        
+
         for (float t = 0; t < moveDuration; t += Time.deltaTime)
         {
             transform.position = Vector3.Lerp(start, end, t / moveDuration);
@@ -358,23 +367,22 @@ public class PlayerController : MonoBehaviour
         if (other.CompareTag("EndPoint") && isExecuting)
         {
             SoundManager.Instance?.PlaySuccess();
-            successPanel?.SetActive(true);
-            if (inGameUIGroup != null) inGameUIGroup.SetActive(false); 
+            if (successPanel != null) successPanel.SetActive(true);
+            if (inGameUIGroup != null) inGameUIGroup.SetActive(false);
+
             StopAllCoroutines();
             isExecuting = false;
         }
     }
 
-    #endregion
-
-    #region UI 업데이트
-
+    // ---------------------------------------------------------
+    // UI 업데이트
+    // ---------------------------------------------------------
     private void UpdateIcons(GameObject panel, List<CommandType> list)
     {
         if (panel == null || commandSlotPrefab == null) return;
 
-        // A. 메인 패널
-        if (panel == commandSequencePanel)
+        if (panel == commandSequencePanel) // 메인 패널
         {
             int cmdIndex = 0;
             for (int i = 0; i < panel.transform.childCount; i++)
@@ -390,17 +398,17 @@ public class PlayerController : MonoBehaviour
                     CommandType cmd = list[cmdIndex];
                     switch (cmd)
                     {
-                        case CommandType.Forward: 
-                            img.sprite = forwardIcon; 
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); 
+                        case CommandType.Forward:
+                            img.sprite = forwardIcon;
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
                             break;
-                        case CommandType.TurnRight: 
-                            img.sprite = rightIcon; 
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); 
+                        case CommandType.TurnRight:
+                            img.sprite = rightIcon;
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
                             break;
-                        case CommandType.TurnLeft: 
-                            img.sprite = leftIcon; 
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y); 
+                        case CommandType.TurnLeft:
+                            img.sprite = leftIcon;
+                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
                             break;
                         case CommandType.Loop:
                             img.sprite = loopIcon;
@@ -418,8 +426,7 @@ public class PlayerController : MonoBehaviour
                 }
             }
         }
-        // B. 팝업 패널
-        else
+        else // 팝업 패널
         {
             foreach (Transform child in panel.transform) Destroy(child.gameObject);
             foreach (CommandType cmd in list)
@@ -464,8 +471,6 @@ public class PlayerController : MonoBehaviour
         if (limitText == null) return;
         int current = GetCurrentCost();
         limitText.text = $"{current} / {maxCommandCost}";
-        limitText.color = (current >= maxCommandCost) ? Color.red : new Color(0f,0f,0f,0.5f) ;
+        limitText.color = (current >= maxCommandCost) ? Color.red : Color.white;
     }
-
-    #endregion
 }

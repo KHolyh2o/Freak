@@ -48,7 +48,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   highlightScale: 1.2
-  maxCommandCost: 10
+  maxCommandCost: 99
   loopRepeatCount: 1
   maxLoopConfigLimit: 4
   moveStep: 1

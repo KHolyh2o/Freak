@@ -8,6 +8,7 @@ TagManager:
   - OutOfBounds
   - Road
   - EndPoint
+  - StartBox
   layers:
   - Default
   - TransparentFX

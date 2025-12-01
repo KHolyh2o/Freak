@@ -1,19 +1,25 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems; // (★ 이 줄을 스크립트 맨 위에 추가하세요!)
+using UnityEngine.EventSystems; // UI 클릭 감지를 위해 필수
 
 public class MapEditor : MonoBehaviour
 {
     [Header("설치할 프리팹 연결")]
     public GameObject roadPrefab;
     public GameObject obstaclePrefab;
-    public GameObject startBoxPrefab; // (Tag: StartBox 필수)
-    public GameObject endPointPrefab; // (Tag: EndPoint 필수)
+    public GameObject startBoxPrefab; // (Tag: "StartBox" 필수)
+    public GameObject endPointPrefab; // (Tag: "EndPoint" 필수)
     public GameObject playerPrefab;   // (Player_Root 프리팹)
 
     [Header("설정")]
     public LayerMask groundLayer; // 바닥 감지용 레이어 (Ground)
+
+    [Header("UI 및 카메라 연결")]
+    public GameObject editorUI; // 맵 에디터용 UI (길, 나무 버튼 등)
+    public GameObject gameUI;   // 가져온 GameUI_Canvas 프리팹
+    public GameObject editorCamera; // 편집용 카메라 (Main Camera)
+    public GameObject gameCameraManager; // 가져온 CameraManager 프리팹
 
     // 설치된 블록 관리 (좌표 중복 방지용)
     private Dictionary<Vector2Int, GameObject> placedObjects = new Dictionary<Vector2Int, GameObject>();
@@ -61,9 +67,9 @@ public class MapEditor : MonoBehaviour
             return;
         }
 
+        // 마우스가 UI 위에 있다면 레이캐스트 무시 (뒤에 설치되는 것 방지)
         if (EventSystem.current.IsPointerOverGameObject())
         {
-            // (선택) 고스트 블록도 UI 위에서는 안 보이게 하려면:
             if (ghostObject != null) ghostObject.SetActive(false);
             return;
         }
@@ -90,8 +96,6 @@ public class MapEditor : MonoBehaviour
             // [좌클릭] 설치
             if (Input.GetMouseButton(0))
             {
-                // 클릭한 곳이 UI가 아닐 때만 설치 (EventSystem 필요하지만 여기선 생략)
-                // 이미 블록이 있으면 덮어쓰기 위해 체크 안 함 (바로 PlaceBlock 호출)
                 PlaceBlock(new Vector2Int(x, z), finalPos);
             }
             // [우클릭] 삭제
@@ -139,16 +143,11 @@ public class MapEditor : MonoBehaviour
         // 이미 그 자리에 블록이 있다면?
         if (placedObjects.ContainsKey(gridCoord))
         {
-            // 같은 프리팹이면 다시 설치 안 함 (최적화)
-            // (이름 비교 등으로 체크 가능하나 여기선 생략하고 덮어쓰기 진행)
+            // 기존 거 삭제하고 덮어쓰기
             RemoveBlock(gridCoord);
         }
 
         GameObject newObj = Instantiate(currentPrefab, position, Quaternion.identity);
-
-        // 회전이 필요한 경우 (예: StartBox는 방향 중요) 여기서 처리 가능
-        // newObj.transform.rotation = ...
-
         placedObjects.Add(gridCoord, newObj);
     }
 
@@ -161,15 +160,24 @@ public class MapEditor : MonoBehaviour
         }
     }
 
-    // --- 플레이 모드 전환 (Toggle) ---
-    public void TogglePlayMode()
+    // --- 플레이 모드 전환 (Toggle 연결용) ---
+    // 토글(Toggle) UI가 호출할 함수 (체크되면 isOn = true, 해제되면 isOn = false)
+    public void SetPlayMode(bool isOn)
     {
-        isPlayMode = !isPlayMode;
+        isPlayMode = isOn;
 
         if (isPlayMode)
         {
-            // [편집 -> 플레이]
+            // [편집 -> 플레이 모드 진입]
             if (ghostObject != null) ghostObject.SetActive(false);
+
+            // 1. UI 전환: 에디터 UI 끄고, 게임 UI 켜기
+            if (editorUI != null) editorUI.SetActive(false);
+            if (gameUI != null) gameUI.SetActive(true);
+
+            // 2. 카메라 전환: 에디터 카메라 끄고, 게임 카메라 켜기
+            if (editorCamera != null) editorCamera.SetActive(false);
+            if (gameCameraManager != null) gameCameraManager.SetActive(true);
 
             // StartBox 위치 찾기
             GameObject startBoxObj = null;
@@ -186,22 +194,47 @@ public class MapEditor : MonoBehaviour
             {
                 // 플레이어 생성
                 currentPlayerInstance = Instantiate(playerPrefab);
-                // 위치 잡기
                 currentPlayerInstance.transform.position = startBoxObj.transform.position + Vector3.up * 1.33f;
-                // (주의: PlayerController.Awake에서 StartBox를 태그로 찾도록 수정되어 있어야 함)
+
+                // ★ 중요: 생성된 플레이어에게 StartBox와 UI 연결해주기
+                PlayerController pc = currentPlayerInstance.GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.startBox = startBoxObj;
+                }
+
+                // UI Auto Connector에게 새 플레이어 연결
+                UI_Auto_Connector uiConnector = FindObjectOfType<UI_Auto_Connector>();
+                if (uiConnector != null && pc != null)
+                {
+                    uiConnector.BindPlayer(pc); // (UI_Auto_Connector에 BindPlayer 함수가 있어야 함)
+                }
 
                 Debug.Log("플레이 모드 시작!");
             }
             else
             {
                 Debug.LogWarning("시작 지점(StartBox)이 없습니다!");
-                isPlayMode = false; // 시작 취소
+                // 강제로 토글을 끕니다 (변수만 복구)
+                isPlayMode = false;
                 if (ghostObject != null) ghostObject.SetActive(true);
+
+                // UI 복구
+                if (editorUI != null) editorUI.SetActive(true);
+                if (gameUI != null) gameUI.SetActive(false);
             }
         }
         else
         {
-            // [플레이 -> 편집]
+            // [플레이 -> 편집 모드 복귀]
+            // 1. UI 전환: 게임 UI 끄고, 에디터 UI 켜기
+            if (gameUI != null) gameUI.SetActive(false);
+            if (editorUI != null) editorUI.SetActive(true);
+
+            // 2. 카메라 전환: 게임 카메라 끄고, 에디터 카메라 켜기
+            if (gameCameraManager != null) gameCameraManager.SetActive(false);
+            if (editorCamera != null) editorCamera.SetActive(true);
+
             if (currentPlayerInstance != null) Destroy(currentPlayerInstance);
             if (ghostObject != null) ghostObject.SetActive(true);
             Debug.Log("편집 모드로 복귀");

@@ -26,4 +26,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Stage_04.unity
     guid: d353b92a6f7f1cc4c9bf73a9d25ff303
+  - enabled: 1
+    path: Assets/Scenes/CreativeMode.unity
+    guid: a31e81b5d4219d14da94c5a851bf79fe
   m_configObjects: {}

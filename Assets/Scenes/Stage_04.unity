@@ -546,6 +546,14 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
+      propertyPath: endPoint
+      value: 
+      objectReference: {fileID: 1030071735}
+    - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
+      propertyPath: startBox
+      value: 
+      objectReference: {fileID: 1405212618}
+    - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
       propertyPath: maxCommandCost
       value: 11
       objectReference: {fileID: 0}
@@ -1431,6 +1439,11 @@ PrefabInstance:
 --- !u!4 &1405212617 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3245034221166859310, guid: 37db4f41756348c4092a5893b77bea4f, type: 3}
+  m_PrefabInstance: {fileID: 1405212616}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1405212618 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2757185673320681108, guid: 37db4f41756348c4092a5893b77bea4f, type: 3}
   m_PrefabInstance: {fileID: 1405212616}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1540790762

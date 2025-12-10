@@ -68,32 +68,91 @@ public class PlayerController : MonoBehaviour
 
     void Awake()
     {
-        // 1차 시도: 태그로 찾기
-        if (startBox == null)
-        {
-            GameObject foundStart = GameObject.FindGameObjectWithTag("StartBox");
-            if (foundStart != null) startBox = foundStart;
-        }
-
+        // UI 등 초기화에 필요한 값만 미리 계산
         if (commandSlotPrefab != null)
         {
             RectTransform rect = commandSlotPrefab.GetComponent<RectTransform>();
             if (rect != null) defaultSlotWidth = rect.sizeDelta.x;
         }
-
-        // 일단 초기값 설정 (나중에 ResetPlayerPosition에서 덮어씌워짐)
-        if (startBox != null)
-        {
-            startPosition = new Vector3(startBox.transform.position.x, startBox.transform.position.y + 1.33f, startBox.transform.position.z);
-            startRotation = startBox.transform.rotation;
-        }
     }
 
-    void Start()
+    IEnumerator Start()
     {
-        // 여기서는 이동하지 않음 (ResetPlayerPosition이 해줌)
         soundManager = FindObjectOfType<SoundManager>();
         cameraSwitcher = FindObjectOfType<CameraSwitcher>();
+
+        // 0.1초 대기하여 MapEditor가 startBox를 넣어줄 시간을 줍니다.
+        yield return new WaitForSeconds(0.1f);
+
+        // 만약 MapEditor가 startBox를 안 넣어줬다면(예: 그냥 씬 실행), 스스로 태그를 찾습니다.
+        if (startBox == null)
+        {
+            GameObject[] allStartBoxes = GameObject.FindGameObjectsWithTag("StartBox");
+            if (allStartBoxes.Length > 0) 
+            {
+                // 유효한 StartBox 찾기 (GhostBlock 제외)
+                List<GameObject> validBoxes = new List<GameObject>();
+                foreach(var box in allStartBoxes)
+                {
+                    if (box.name.Contains("Ghost") || box.name.Contains("ghost")) continue;
+                    validBoxes.Add(box);
+                }
+
+                if (validBoxes.Count > 0)
+                {
+                    startBox = validBoxes[0];
+                    Debug.Log($"[PlayerController] Valid StartBox connected: {startBox.name} (ID: {startBox.GetInstanceID()})");
+                    
+                    // ★ 상세 진단 로그 복구 (다시 확인 필요)
+                    Debug.Log($"--- StartBox Detail info ---");
+                    Debug.Log($"Name: {startBox.name}");
+                    Debug.Log($"Parent: {(startBox.transform.parent ? startBox.transform.parent.name : "None")}");
+                    Debug.Log($"Local Rotation (Inspector값): {startBox.transform.localRotation.eulerAngles}");
+                    Debug.Log($"World Rotation (실제값): {startBox.transform.rotation.eulerAngles}");
+                    Debug.Log($"----------------------------");
+                }
+                else
+                {
+                    Debug.LogWarning("[PlayerController] StartBox 태그가 있는 오브젝트는 발견했지만, 모두 GhostBlock(고스트)으로 판단되어 제외되었습니다.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[PlayerController] 경고: 'StartBox' 태그를 가진 오브젝트가 씬에 없습니다!");
+            }
+        }
+
+        // 확정된 startBox를 기준으로 위치/회전 초기화
+        ResetPlayerPosition();
+    }
+
+    [ContextMenu("Delete Invalid StartBoxes (Rotation ~0)")]
+    public void DeleteInvalidStartBoxes()
+    {
+        GameObject[] boxes = GameObject.FindGameObjectsWithTag("StartBox");
+        int deletedCount = 0;
+        foreach (var box in boxes)
+        {
+            // 부동소수점 오차를 고려하여 0도와 1도 차이 이내면 삭제 대상
+            if (Quaternion.Angle(box.transform.rotation, Quaternion.identity) < 1.0f)
+            {
+                Debug.Log($"[Manual-Cleanup] 삭제됨: {box.name} (ID: {box.GetInstanceID()})");
+                if (Application.isPlaying) Destroy(box);
+                else DestroyImmediate(box);
+                deletedCount++;
+            }
+        }
+        Debug.Log($"[Manual-Cleanup] 완료. 총 {deletedCount}개의 잘못된 StartBox를 삭제했습니다.");
+    }
+
+    [ContextMenu("Select All StartBoxes")]
+    public void SelectAllStartBoxes()
+    {
+#if UNITY_EDITOR
+        GameObject[] boxes = GameObject.FindGameObjectsWithTag("StartBox");
+        UnityEditor.Selection.objects = boxes;
+        Debug.Log($"[Select-Tool] 총 {boxes.Length}개의 StartBox를 선택했습니다. Hierarchy 창을 확인하세요.");
+#endif
     }
 
     public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt, GameObject inGameUI)
@@ -105,6 +164,7 @@ public class PlayerController : MonoBehaviour
         this.loopConfigPopup = loopPopup;
         this.limitText = limitTxt;
         this.inGameUIGroup = inGameUI;
+        // ... (rest of method if needed, but tool replaces contiguous block)
 
         if (commandSlotPrefab != null)
         {
@@ -234,7 +294,6 @@ public class PlayerController : MonoBehaviour
         StopAllCoroutines();
         isExecuting = false;
 
-        // (★ 중요) 현재 연결된 StartBox 위치로 좌표를 다시 계산해서 갱신함
         if (startBox != null)
         {
             startPosition = new Vector3(
@@ -244,11 +303,15 @@ public class PlayerController : MonoBehaviour
             );
             startRotation = startBox.transform.rotation;
         }
+        else
+        {
+            Debug.LogError("PlayerController: StartBox is not assigned!");
+        }
 
         // 계산된 위치로 이동
         transform.position = startPosition;
         transform.rotation = startRotation;
-
+        
         if (successPanel != null) successPanel.SetActive(false);
         if (inGameUIGroup != null) inGameUIGroup.SetActive(true);
     }
@@ -479,4 +542,7 @@ public class PlayerController : MonoBehaviour
         limitText.text = $"{current} / {maxCommandCost}";
         limitText.color = (current >= maxCommandCost) ? Color.red : Color.white;
     }
+
+
+
 }

@@ -495,6 +495,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 511475740196652011, guid: 8dc5f4146987f994980c0aaf110215e8, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 675229759035056057, guid: 8dc5f4146987f994980c0aaf110215e8, type: 3}
       propertyPath: m_Name
       value: GameUI_Canvas
@@ -826,6 +830,11 @@ PrefabInstance:
 --- !u!4 &716027123 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3245034221166859310, guid: 37db4f41756348c4092a5893b77bea4f, type: 3}
+  m_PrefabInstance: {fileID: 716027122}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &716027124 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2757185673320681108, guid: 37db4f41756348c4092a5893b77bea4f, type: 3}
   m_PrefabInstance: {fileID: 716027122}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &808321472
@@ -1335,6 +1344,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
+      propertyPath: endPoint
+      value: 
+      objectReference: {fileID: 1404025057}
+    - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
+      propertyPath: startBox
+      value: 
+      objectReference: {fileID: 716027124}
     - target: {fileID: -6225443793821508422, guid: c7ed95d9f65803c4e856e948ada95e44, type: 3}
       propertyPath: loopRepeatCount
       value: 1

@@ -2,80 +2,81 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using System.IO; // ÆÄÀÏ ÀúÀåÀ» À§ÇØ ÇÊ¿ä
-using TMPro;     // ÅØ½ºÆ® ¹× ÀÔ·ÂÃ¢ Á¦¾î¿ë
+using System.IO; // íŒŒì¼ ì €ì¥ì„ ìœ„í•´ í•„ìš”
+using TMPro;     // í…ìŠ¤íŠ¸ ë° ì…ë ¥ì°½ ì œì–´ìš©
 
 public class MapEditor : MonoBehaviour
 {
-    [Header("¼³Ä¡ÇÒ ÇÁ¸®ÆÕ ¿¬°á (¼ø¼­ Áß¿ä: 0,1,2,3)")]
+    [Header("ì„¤ì¹˜í•  í”„ë¦¬íŒ¹ ì—°ê²° (ìˆœì„œ ì¤‘ìš”: 0,1,2,3)")]
     public GameObject[] prefabs;
-    // 0: Road (±æ)
-    // 1: Obstacle (Àå¾Ö¹°)
-    // 2: StartBox (½ÃÀÛÁ¡ - Tag: StartBox ÇÊ¼ö)
-    // 3: EndPoint (µµÂøÁ¡ - Tag: EndPoint ÇÊ¼ö)
-    // 4: Player (ÇÃ·¹ÀÌ¾î ÇÁ¸®ÆÕ)
+    // 0: Road (ê¸¸)
+    // 1: Obstacle (ì¥ì• ë¬¼)
+    // 2: StartBox (ì‹œì‘ì  - Tag: StartBox í•„ìˆ˜)
+    // 3: EndPoint (ë„ì°©ì  - Tag: EndPoint í•„ìˆ˜)
+    // 4: Player (í”Œë ˆì´ì–´ í”„ë¦¬íŒ¹)
 
-    [Header("¼³Á¤")]
-    public LayerMask groundLayer; // ¹Ù´Ú °¨Áö¿ë ·¹ÀÌ¾î (Ground)
+    [Header("ì„¤ì •")]
+    public LayerMask groundLayer; // ë°”ë‹¥ ê°ì§€ìš© ë ˆì´ì–´ (Ground)
 
-    [Header("UI ¹× Ä«¸Ş¶ó ¿¬°á")]
-    public GameObject editorUI; // ¸Ê ¿¡µğÅÍ¿ë UI 
-    public GameObject gameUI;   // °ÔÀÓ¿ë UI (GameUI_Canvas)
-    public GameObject editorCamera; // ÆíÁı¿ë Ä«¸Ş¶ó
-    public GameObject gameCameraManager; // °ÔÀÓ¿ë Ä«¸Ş¶ó ¸Å´ÏÀú
+    [Header("UI ë° ì¹´ë©”ë¼ ì—°ê²°")]
+    public GameObject editorUI; // ë§µ ì—ë””í„°ìš© UI 
+    public GameObject gameUI;   // ê²Œì„ìš© UI (GameUI_Canvas)
+    public GameObject editorCamera; // í¸ì§‘ìš© ì¹´ë©”ë¼
+    public GameObject gameCameraManager; // ê²Œì„ìš© ì¹´ë©”ë¼ ë§¤ë‹ˆì €
 
-    [Header("ÀúÀå/°ËÁõ UI")]
-    public TMP_InputField costInputField; // ÄÚ½ºÆ® ¼³Á¤¿ë ÀÔ·ÂÃ¢
-    public TextMeshProUGUI statusText;    // »óÅÂ ¸Ş½ÃÁö Ç¥½Ã¿ë ÅØ½ºÆ®
+    [Header("ì €ì¥/ê²€ì¦ UI")]
+    public TMP_InputField costInputField; // ì½”ìŠ¤íŠ¸ ì„¤ì •ìš© ì…ë ¥ì°½
+    public TextMeshProUGUI statusText;    // ìƒíƒœ ë©”ì‹œì§€ í‘œì‹œìš© í…ìŠ¤íŠ¸
 
-    // µ¥ÀÌÅÍ °ü¸®
+    // ë°ì´í„° ê´€ë¦¬
     private Dictionary<Vector2Int, GameObject> placedObjects = new Dictionary<Vector2Int, GameObject>();
-    private Dictionary<Vector2Int, int> placedBlockIDs = new Dictionary<Vector2Int, int>(); // ÀúÀå¿ë ID µñ¼Å³Ê¸®
+    private Dictionary<Vector2Int, int> placedBlockIDs = new Dictionary<Vector2Int, int>(); // ì €ì¥ìš© ID ë”•ì…”ë„ˆë¦¬
 
-    private int currentID = 0; // ÇöÀç ¼±ÅÃµÈ µµ±¸ ID
+    private int currentID = 0; // í˜„ì¬ ì„ íƒëœ ë„êµ¬ ID
     private GameObject ghostObject;
     private Material ghostMaterial;
 
     private GameObject currentPlayerInstance;
     private bool isPlayMode = false;
 
-    // ÀúÀå °ü·Ã º¯¼ö
-    private bool isVerified = false; // Å¬¸®¾î °ËÁõ ¿©ºÎ
-    public int mapMaxCost = 10;      // ÀÌ ¸ÊÀÇ ÄÚ½ºÆ® Á¦ÇÑ (±âº» 10)
+    // ì €ì¥ ê´€ë ¨ ë³€ìˆ˜
+    private bool isVerified = false; // í´ë¦¬ì–´ ê²€ì¦ ì—¬ë¶€
+    public int mapMaxCost = 10;      // ì´ ë§µì˜ ì½”ìŠ¤íŠ¸ ì œí•œ (ê¸°ë³¸ 10)
 
     void Start()
     {
-        // 1. °í½ºÆ®¿ë ¹İÅõ¸í ÀçÁú ¸¸µé±â (URP È£È¯)
+        // 1. ê³ ìŠ¤íŠ¸ìš© ë°˜íˆ¬ëª… ì¬ì§ˆ ë§Œë“¤ê¸° (URP í˜¸í™˜)
         SetupGhostMaterial();
 
-        // ÃÊ±â ¼±ÅÃ (±æ)
+        // ì´ˆê¸° ì„ íƒ (ê¸¸)
         SelectTool(0);
 
-        // ÄÚ½ºÆ® ÀÔ·ÂÃ¢ ÃÊ±â°ª ¼³Á¤
+        // ì½”ìŠ¤íŠ¸ ì…ë ¥ì°½ ì´ˆê¸°ê°’ ì„¤ì •
         if (costInputField != null)
         {
             costInputField.text = mapMaxCost.ToString();
             costInputField.onEndEdit.AddListener(UpdateMaxCost);
         }
 
-        // --- (¡Ú Ãß°¡µÈ ÀÚµ¿ ·Îµå ±â´É) ---
-        // ¸ŞÀÎ È­¸é¿¡¼­ "ÀÌ°Å ÇÃ·¹ÀÌÇØ!"¶ó°í ÂÊÁö¸¦ º¸³Â´ÂÁö È®ÀÎ
+        // --- (â˜… ì¶”ê°€ëœ ìë™ ë¡œë“œ ê¸°ëŠ¥) ---
+        // ë©”ì¸ í™”ë©´ì—ì„œ "ì´ê±° í”Œë ˆì´í•´!"ë¼ê³  ìª½ì§€ë¥¼ ë³´ëƒˆëŠ”ì§€ í™•ì¸
         if (PlayerPrefs.HasKey("AutoLoadSlot"))
         {
             int slotToLoad = PlayerPrefs.GetInt("AutoLoadSlot");
-            PlayerPrefs.DeleteKey("AutoLoadSlot"); // ÂÊÁö È®ÀÎÇßÀ¸´Ï »èÁ¦ (´ÙÀ½¿¡ ±×³É µé¾î¿Ã ¶© ÆíÁı ¸ğµå¿©¾ß ÇÏ´Ï±î)
+            Debug.Log($"[MapEditor] AutoLoad detected! Loading Slot {slotToLoad}..."); // ë¡œê·¸ ì¶”ê°€
+            PlayerPrefs.DeleteKey("AutoLoadSlot"); // ìª½ì§€ í™•ì¸í–ˆìœ¼ë‹ˆ ì‚­ì œ (ë‹¤ìŒì— ê·¸ëƒ¥ ë“¤ì–´ì˜¬ ë• í¸ì§‘ ëª¨ë“œì—¬ì•¼ í•˜ë‹ˆê¹Œ)
 
-            // 1. ¸Ê ºÒ·¯¿À±â
+            // 1. ë§µ ë¶ˆëŸ¬ì˜¤ê¸°
             LoadMap(slotToLoad);
 
-            // 2. ¹Ù·Î ÇÃ·¹ÀÌ ¸ğµå ½ÃÀÛ!
+            // 2. ë°”ë¡œ í”Œë ˆì´ ëª¨ë“œ ì‹œì‘!
             SetPlayMode(true);
         }
     }
 
     void Update()
     {
-        // ÇÃ·¹ÀÌ ¸ğµåÀÌ°Å³ª UI À§¿¡ ¸¶¿ì½º°¡ ÀÖÀ¸¸é ÆíÁı Áß´Ü
+        // í”Œë ˆì´ ëª¨ë“œì´ê±°ë‚˜ UI ìœ„ì— ë§ˆìš°ìŠ¤ê°€ ìˆìœ¼ë©´ í¸ì§‘ ì¤‘ë‹¨
         if (isPlayMode)
         {
             if (ghostObject != null) ghostObject.SetActive(false);
@@ -87,30 +88,30 @@ public class MapEditor : MonoBehaviour
             return;
         }
 
-        // ¸¶¿ì½º ·¹ÀÌÄ³½ºÆ®
+        // ë§ˆìš°ìŠ¤ ë ˆì´ìºìŠ¤íŠ¸
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, 100f, groundLayer))
         {
-            // ±×¸®µå ½º³À (Á¤¼ö ÁÂÇ¥)
+            // ê·¸ë¦¬ë“œ ìŠ¤ëƒ… (ì •ìˆ˜ ì¢Œí‘œ)
             int x = Mathf.RoundToInt(hit.point.x);
             int z = Mathf.RoundToInt(hit.point.z);
             Vector3 finalPos = new Vector3(x, 0, z);
 
-            // °í½ºÆ® ÀÌµ¿
+            // ê³ ìŠ¤íŠ¸ ì´ë™
             if (ghostObject != null)
             {
                 if (!ghostObject.activeSelf) ghostObject.SetActive(true);
                 ghostObject.transform.position = finalPos;
             }
 
-            // [ÁÂÅ¬¸¯] ¼³Ä¡
+            // [ì¢Œí´ë¦­] ì„¤ì¹˜
             if (Input.GetMouseButton(0))
             {
                 PlaceBlock(new Vector2Int(x, z), finalPos);
             }
-            // [¿ìÅ¬¸¯] »èÁ¦
+            // [ìš°í´ë¦­] ì‚­ì œ
             else if (Input.GetMouseButton(1))
             {
                 RemoveBlock(new Vector2Int(x, z));
@@ -122,7 +123,7 @@ public class MapEditor : MonoBehaviour
         }
     }
 
-    // --- Åø ¼±ÅÃ ÇÔ¼ö ---
+    // --- íˆ´ ì„ íƒ í•¨ìˆ˜ ---
     public void SelectTool(int id)
     {
         if (id < 0 || id >= prefabs.Length) return;
@@ -130,25 +131,28 @@ public class MapEditor : MonoBehaviour
         ChangeGhost(prefabs[id]);
     }
 
-    // --- ¼³Ä¡ ·ÎÁ÷ ---
+    // --- ì„¤ì¹˜ ë¡œì§ ---
     void PlaceBlock(Vector2Int coord, Vector3 pos)
     {
-        // ÀÌ¹Ì °°Àº ºí·ÏÀÌ ÀÖÀ¸¸é ¹«½Ã (ÃÖÀûÈ­)
+        // ì´ë¯¸ ê°™ì€ ë¸”ë¡ì´ ìˆìœ¼ë©´ ë¬´ì‹œ (ìµœì í™”)
         if (placedBlockIDs.ContainsKey(coord) && placedBlockIDs[coord] == currentID) return;
 
-        // ±âÁ¸ ºí·ÏÀÌ ÀÖ´Ù¸é »èÁ¦ ÈÄ ¼³Ä¡
+        // ê¸°ì¡´ ë¸”ë¡ì´ ìˆë‹¤ë©´ ì‚­ì œ í›„ ì„¤ì¹˜
         RemoveBlock(coord);
 
-        GameObject newObj = Instantiate(prefabs[currentID], pos, Quaternion.identity);
-        placedObjects.Add(coord, newObj);
-        placedBlockIDs.Add(coord, currentID); // ID ÀúÀå
+        Quaternion rot = prefabs[currentID].transform.rotation;
+        Debug.Log($"[MapEditor] Placing Block ID {currentID} at {coord}. Prefab Rotation: {rot.eulerAngles}"); // ë¡œê·¸ ì¶”ê°€
 
-        // ¡Ú ¸ÊÀÌ ¼öÁ¤µÇ¾úÀ¸¹Ç·Î °ËÁõ Ãë¼Ò
+        GameObject newObj = Instantiate(prefabs[currentID], pos, rot);
+        placedObjects.Add(coord, newObj);
+        placedBlockIDs.Add(coord, currentID); // ID ì €ì¥
+
+        // â˜… ë§µì´ ìˆ˜ì •ë˜ì—ˆìœ¼ë¯€ë¡œ ê²€ì¦ ì·¨ì†Œ
         isVerified = false;
-        ShowMessage("¸ÊÀÌ ¼öÁ¤µÇ¾ú½À´Ï´Ù. (ÀúÀåÇÏ·Á¸é Å¬¸®¾î °ËÁõ ÇÊ¿ä)");
+        ShowMessage("ë§µì´ ìˆ˜ì •ë˜ì—ˆìŠµë‹ˆë‹¤. (ì €ì¥í•˜ë ¤ë©´ í´ë¦¬ì–´ ê²€ì¦ í•„ìš”)");
     }
 
-    // --- »èÁ¦ ·ÎÁ÷ ---
+    // --- ì‚­ì œ ë¡œì§ ---
     void RemoveBlock(Vector2Int coord)
     {
         if (placedObjects.ContainsKey(coord))
@@ -157,109 +161,114 @@ public class MapEditor : MonoBehaviour
             placedObjects.Remove(coord);
             placedBlockIDs.Remove(coord);
 
-            // ¡Ú ¸ÊÀÌ ¼öÁ¤µÇ¾úÀ¸¹Ç·Î °ËÁõ Ãë¼Ò
+            // â˜… ë§µì´ ìˆ˜ì •ë˜ì—ˆìœ¼ë¯€ë¡œ ê²€ì¦ ì·¨ì†Œ
             isVerified = false;
-            ShowMessage("¸ÊÀÌ ¼öÁ¤µÇ¾ú½À´Ï´Ù. (ÀúÀåÇÏ·Á¸é Å¬¸®¾î °ËÁõ ÇÊ¿ä)");
+            ShowMessage("ë§µì´ ìˆ˜ì •ë˜ì—ˆìŠµë‹ˆë‹¤. (ì €ì¥í•˜ë ¤ë©´ í´ë¦¬ì–´ ê²€ì¦ í•„ìš”)");
         }
     }
 
-    // --- ÄÚ½ºÆ® ¼³Á¤ ¾÷µ¥ÀÌÆ® ---
+    // --- ì½”ìŠ¤íŠ¸ ì„¤ì • ì—…ë°ì´íŠ¸ ---
     public void UpdateMaxCost(string value)
     {
         if (int.TryParse(value, out int result))
         {
             mapMaxCost = result;
-            isVerified = false; // ÄÚ½ºÆ®¸¦ ¹Ù²ãµµ °ËÁõ ´Ù½Ã ÇØ¾ß ÇÔ
-            ShowMessage($"ÄÚ½ºÆ® º¯°æµÊ: {mapMaxCost} (°ËÁõ ÇÊ¿ä)");
+            isVerified = false; // ì½”ìŠ¤íŠ¸ë¥¼ ë°”ê¿”ë„ ê²€ì¦ ë‹¤ì‹œ í•´ì•¼ í•¨
+            ShowMessage($"ì½”ìŠ¤íŠ¸ ë³€ê²½ë¨: {mapMaxCost} (ê²€ì¦ í•„ìš”)");
         }
     }
 
-    // --- (¡Ú ÇÙ½É) ÀúÀå ±â´É ---
+    // --- (â˜… í•µì‹¬) ì €ì¥ ê¸°ëŠ¥ ---
     public void SaveMap(int slotIndex)
     {
-        // 1. °ËÁõ Ã¼Å©
+        // 1. ê²€ì¦ ì²´í¬
         if (!isVerified)
         {
-            ShowMessage("¸ÕÀú ÇÃ·¹ÀÌÇØ¼­ Å¬¸®¾îÇØ¾ß ÀúÀåÇÒ ¼ö ÀÖ½À´Ï´Ù!");
+            ShowMessage("ë¨¼ì € í”Œë ˆì´í•´ì„œ í´ë¦¬ì–´í•´ì•¼ ì €ì¥í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤!");
             return;
         }
 
-        // 2. µ¥ÀÌÅÍ Æ÷Àå
+        // 2. ë°ì´í„° í¬ì¥
         MapData data = new MapData();
         data.maxCost = mapMaxCost;
         foreach (var kvp in placedBlockIDs)
         {
-            // kvp.Key´Â ÁÂÇ¥(x,z), kvp.Value´Â ºí·ÏID
+            // kvp.KeyëŠ” ì¢Œí‘œ(x,z), kvp.ValueëŠ” ë¸”ë¡ID
             data.blocks.Add(new BlockData(kvp.Value, kvp.Key.x, kvp.Key.y));
         }
 
-        // 3. JSON º¯È¯ ¹× ÀúÀå
+        // 3. JSON ë³€í™˜ ë° ì €ì¥
         string json = JsonUtility.ToJson(data, true);
         string path = Path.Combine(Application.persistentDataPath, $"MapSlot_{slotIndex}.json");
         File.WriteAllText(path, json);
 
-        ShowMessage($"½½·Ô {slotIndex}¿¡ ¸Ê ÀúÀå ¿Ï·á!");
+        ShowMessage($"ìŠ¬ë¡¯ {slotIndex}ì— ë§µ ì €ì¥ ì™„ë£Œ!");
         Debug.Log("Saved to: " + path);
     }
 
-    // --- (¡Ú ÇÙ½É) ºÒ·¯¿À±â ±â´É ---
+    // --- (â˜… í•µì‹¬) ë¶ˆëŸ¬ì˜¤ê¸° ê¸°ëŠ¥ ---
     public void LoadMap(int slotIndex)
     {
         string path = Path.Combine(Application.persistentDataPath, $"MapSlot_{slotIndex}.json");
+        Debug.Log($"[MapEditor] Loading Map from: {path}"); // ë¡œê·¸ ì¶”ê°€
+
         if (!File.Exists(path))
         {
-            ShowMessage($"½½·Ô {slotIndex}¿¡ ÀúÀåµÈ ¸ÊÀÌ ¾ø½À´Ï´Ù.");
+            ShowMessage($"ìŠ¬ë¡¯ {slotIndex}ì— ì €ì¥ëœ ë§µì´ ì—†ìŠµë‹ˆë‹¤.");
             return;
         }
 
-        // 1. ÆÄÀÏ ÀĞ±â
+        // 1. íŒŒì¼ ì½ê¸°
         string json = File.ReadAllText(path);
         MapData data = JsonUtility.FromJson<MapData>(json);
 
-        // 2. ±âÁ¸ ¸Ê ½Ï Áö¿ì±â
+        // 2. ê¸°ì¡´ ë§µ ì‹¹ ì§€ìš°ê¸°
         ClearAll();
 
-        // 3. µ¥ÀÌÅÍ Àû¿ë
+        // 3. ë°ì´í„° ì ìš©
         mapMaxCost = data.maxCost;
         if (costInputField != null) costInputField.text = mapMaxCost.ToString();
 
-        // 4. ºí·Ï ¹èÄ¡
+        // 4. ë¸”ë¡ ë°°ì¹˜
         foreach (var block in data.blocks)
         {
-            currentID = block.id; // ÀÓ½Ã·Î ID º¯°æ
+            currentID = block.id; // ì„ì‹œë¡œ ID ë³€ê²½
             Vector2Int coord = new Vector2Int(block.x, block.z);
             Vector3 pos = new Vector3(block.x, 0, block.z);
 
-            // PlaceBlock ³»ºÎ ·ÎÁ÷ Á÷Á¢ »ç¿ë (°ËÁõ ÃÊ±âÈ­ ¹æÁö À§ÇØ)
+            // PlaceBlock ë‚´ë¶€ ë¡œì§ ì§ì ‘ ì‚¬ìš© (ê²€ì¦ ì´ˆê¸°í™” ë°©ì§€ ìœ„í•´)
             if (currentID >= 0 && currentID < prefabs.Length)
             {
-                GameObject newObj = Instantiate(prefabs[currentID], pos, Quaternion.identity);
+                Quaternion rot = prefabs[currentID].transform.rotation;
+                Debug.Log($"[MapEditor] Loading Block ID {currentID} at {coord}. Rotation: {rot.eulerAngles}"); // ë¡œê·¸ ì¶”ê°€
+                
+                GameObject newObj = Instantiate(prefabs[currentID], pos, rot);
                 placedObjects.Add(coord, newObj);
                 placedBlockIDs.Add(coord, currentID);
             }
         }
 
-        // ºÒ·¯¿Â ¸ÊÀº ÀÌ¹Ì °ËÁõµÈ °ÍÀ¸·Î °£ÁÖ (¹Ù·Î ÇÃ·¹ÀÌ °¡´É)
+        // ë¶ˆëŸ¬ì˜¨ ë§µì€ ì´ë¯¸ ê²€ì¦ëœ ê²ƒìœ¼ë¡œ ê°„ì£¼ (ë°”ë¡œ í”Œë ˆì´ ê°€ëŠ¥)
         isVerified = true;
-        ShowMessage($"½½·Ô {slotIndex} ºÒ·¯¿À±â ¿Ï·á!");
+        ShowMessage($"ìŠ¬ë¡¯ {slotIndex} ë¶ˆëŸ¬ì˜¤ê¸° ì™„ë£Œ!");
     }
 
-    // --- ÇÃ·¹ÀÌ ¸ğµå¿¡¼­ Å¬¸®¾î ½Ã È£ÃâµÊ ---
+    // --- í”Œë ˆì´ ëª¨ë“œì—ì„œ í´ë¦¬ì–´ ì‹œ í˜¸ì¶œë¨ ---
     public void OnLevelCleared()
     {
         if (isPlayMode)
         {
             isVerified = true;
-            ShowMessage("°ËÁõ ¿Ï·á! ÀÌÁ¦ ÀúÀåÇÒ ¼ö ÀÖ½À´Ï´Ù.");
+            ShowMessage("ê²€ì¦ ì™„ë£Œ! ì´ì œ ì €ì¥í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.");
         }
     }
 
-    // --- ÇÃ·¹ÀÌ ¸ğµå ÀüÈ¯ (Toggle) ---
+    // --- í”Œë ˆì´ ëª¨ë“œ ì „í™˜ (Toggle) ---
     public void SetPlayMode(bool isOn)
     {
         isPlayMode = isOn;
 
-        if (isPlayMode) // [ÇÃ·¹ÀÌ ¸ğµå ½ÃÀÛ]
+        if (isPlayMode) // [í”Œë ˆì´ ëª¨ë“œ ì‹œì‘]
         {
             if (ghostObject) ghostObject.SetActive(false);
             if (editorUI) editorUI.SetActive(false);
@@ -267,7 +276,7 @@ public class MapEditor : MonoBehaviour
             if (editorCamera) editorCamera.SetActive(false);
             if (gameCameraManager) gameCameraManager.SetActive(true);
 
-            // StartBox Ã£±â
+            // StartBox ì°¾ê¸°
             GameObject startBoxObj = null;
             foreach (var obj in placedObjects.Values)
             {
@@ -276,36 +285,38 @@ public class MapEditor : MonoBehaviour
 
             if (startBoxObj != null)
             {
-                // ÇÃ·¹ÀÌ¾î ¼ÒÈ¯ (prefabs[4]°¡ ÇÃ·¹ÀÌ¾î¶ó°í °¡Á¤)
+                // í”Œë ˆì´ì–´ ì†Œí™˜ (prefabs[4]ê°€ í”Œë ˆì´ì–´ë¼ê³  ê°€ì •)
                 if (prefabs.Length > 4 && prefabs[4] != null)
                 {
                     currentPlayerInstance = Instantiate(prefabs[4]);
                     currentPlayerInstance.transform.position = startBoxObj.transform.position + Vector3.up * 1.33f;
+                // í”Œë ˆì´ì–´ì˜ íšŒì „ê°’ë„ StartBoxì˜ íšŒì „ê°’ì— ë§ì¶° ì„¤ì • (â˜… ì¶”ê°€ëœ ì½”ë“œ)
+                currentPlayerInstance.transform.rotation = startBoxObj.transform.rotation;
 
-                    // ÇÃ·¹ÀÌ¾î¿¡°Ô StartBox¿Í ÄÚ½ºÆ® Á¤º¸ Àü´Ş
+                    // í”Œë ˆì´ì–´ì—ê²Œ StartBoxì™€ ì½”ìŠ¤íŠ¸ ì •ë³´ ì „ë‹¬
                     var pc = currentPlayerInstance.GetComponent<PlayerController>();
                     if (pc != null)
                     {
                         pc.startBox = startBoxObj;
-                        pc.maxCommandCost = mapMaxCost; // (¡Ú ÀúÀåµÈ ÄÚ½ºÆ® Àû¿ë)
+                        pc.maxCommandCost = mapMaxCost; // (â˜… ì €ì¥ëœ ì½”ìŠ¤íŠ¸ ì ìš©)
                     }
 
-                    // UI ¿¬°á
+                    // UI ì—°ê²°
                     var uiConnector = FindObjectOfType<UI_Auto_Connector>();
                     if (uiConnector != null && pc != null) uiConnector.BindPlayer(pc);
                 }
                 else
                 {
-                    Debug.LogError("Player PrefabÀÌ ¿¬°áµÇÁö ¾Ê¾Ò½À´Ï´Ù! (Element 4)");
+                    Debug.LogError("Player Prefabì´ ì—°ê²°ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤! (Element 4)");
                 }
             }
             else
             {
-                ShowMessage("½ÃÀÛ ÁöÁ¡(StartBox)ÀÌ ¾ø½À´Ï´Ù!");
-                SetPlayMode(false); // º¹±Í
+                ShowMessage("ì‹œì‘ ì§€ì (StartBox)ì´ ì—†ìŠµë‹ˆë‹¤!");
+                SetPlayMode(false); // ë³µê·€
             }
         }
-        else // [ÆíÁı ¸ğµå º¹±Í]
+        else // [í¸ì§‘ ëª¨ë“œ ë³µê·€]
         {
             if (gameUI) gameUI.SetActive(false);
             if (editorUI) editorUI.SetActive(true);
@@ -317,7 +328,7 @@ public class MapEditor : MonoBehaviour
         }
     }
 
-    // --- ÇïÆÛ ÇÔ¼öµé ---
+    // --- í—¬í¼ í•¨ìˆ˜ë“¤ ---
     void ClearAll()
     {
         foreach (var obj in placedObjects.Values) Destroy(obj);
@@ -353,6 +364,7 @@ public class MapEditor : MonoBehaviour
         if (ghostObject != null) Destroy(ghostObject);
         ghostObject = Instantiate(prefab);
         ghostObject.name = "GhostBlock";
+        ghostObject.tag = "Untagged"; // íƒœê·¸ ì œê±° (PlayerControllerê°€ ì°¾ì§€ ëª»í•˜ê²Œ)
 
         Collider[] colliders = ghostObject.GetComponentsInChildren<Collider>();
         foreach (var col in colliders) Destroy(col);

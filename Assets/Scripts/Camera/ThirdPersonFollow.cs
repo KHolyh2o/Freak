@@ -25,6 +25,12 @@ public class ThirdPersonFollow : MonoBehaviour
     // 투명 처리를 위한 템플릿 메테리얼 (URP/Standard 호환)
     private Material transparentTemplate;
 
+    // SmoothDamp용 변수
+    private Vector3 currentVelocity;
+    private float xRotVelocity;
+    private float yRotVelocity;
+    public float smoothTime = 0.15f; // smoothSpeed 대신 사용 (도달 시간)
+
     void Start()
     {
         // 기본적으로 Player 레이어 빼고 전부 검사하도록 설정 (필요시 Inspector에서 수정)
@@ -53,17 +59,44 @@ public class ThirdPersonFollow : MonoBehaviour
         else transparentTemplate.color = new Color(1,1,1, transparencyStep);
     }
 
+    void OnEnable()
+    {
+        Debug.Log($"[ThirdPersonFollow] Enabled on {gameObject.name} at {Time.time}");
+    }
+
+    void OnDisable()
+    {
+        Debug.Log($"[ThirdPersonFollow] Disabled on {gameObject.name} at {Time.time}");
+    }
+
+    private float _logTimer = 0f;
     void LateUpdate()
     {
         if (target == null || cameraTransform == null) return;
+        
+        // 디버깅: 혹시 꺼져야 하는데 돌아가는지 확인 (1초마다 로그)
+        _logTimer += Time.deltaTime;
+        if (_logTimer > 1.0f)
+        {
+            // Debug.Log($"[ThirdPersonFollow] Running on {gameObject.name} (Frame: {Time.frameCount})");
+            _logTimer = 0f;
+        }
 
-        // 1. 위치 이동
+        // 1. 위치 이동 (SmoothDamp)
         Vector3 desiredPos = target.position + (target.rotation * offset);
-        cameraTransform.position = Vector3.Lerp(cameraTransform.position, desiredPos, smoothSpeed);
+        cameraTransform.position = Vector3.SmoothDamp(cameraTransform.position, desiredPos, ref currentVelocity, smoothTime);
 
-        // 2. 회전 (X축 고정, Y축 타겟 추적)
-        Quaternion targetRot = Quaternion.Euler(fixedXRotation, target.eulerAngles.y, 0);
-        cameraTransform.rotation = Quaternion.Lerp(cameraTransform.rotation, targetRot, smoothSpeed);
+        // 2. 회전 (SmoothDampAngle) - 위치와 동일한 smoothTime 사용
+        float currentY = cameraTransform.eulerAngles.y;
+        float currentX = cameraTransform.eulerAngles.x;
+
+        float targetY = target.eulerAngles.y;
+        float targetX = fixedXRotation;
+
+        float newY = Mathf.SmoothDampAngle(currentY, targetY, ref yRotVelocity, smoothTime);
+        float newX = Mathf.SmoothDampAngle(currentX, targetX, ref xRotVelocity, smoothTime);
+
+        cameraTransform.rotation = Quaternion.Euler(newX, newY, 0);
 
         // 3. 가림막 처리 (재질 교체 방식)
         HandleObstructions();
@@ -145,6 +178,21 @@ public class ThirdPersonFollow : MonoBehaviour
         foreach (var r in toRemove)
         {
             originalMaterials.Remove(r);
+        }
+    }
+
+    // CameraSwitcher 등 외부에서 "이상적인 목표 위치"를 알 수 있게 함
+    public void GetDesiredPose(out Vector3 position, out Quaternion rotation)
+    {
+        if (target != null)
+        {
+            position = target.position + (target.rotation * offset);
+            rotation = Quaternion.Euler(fixedXRotation, target.eulerAngles.y, 0);
+        }
+        else
+        {
+            position = transform.position;
+            rotation = transform.rotation;
         }
     }
 }

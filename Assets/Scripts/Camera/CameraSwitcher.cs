@@ -5,9 +5,20 @@ using UnityEngine;
 public class CameraSwitcher : MonoBehaviour
 {
     [Header("카메라 설정")]
-    public Camera[] cameras; // 0: 근접, 1: 쿼터뷰(고정), 2: 3인칭(메인)
+    public Camera[] cameras; // 0: 쿼터뷰(고정), 1: 탑뷰, 2: 3인칭(메인)
     // index 2번을 무조건 메인(3인칭)으로 고정합니다. (Inspector 설정 실수 방지)
+    [Header("0번 카메라(쿼터뷰) 회전 설정")]
+    public Transform isometricTarget; // 회전 중심축 (비워두면 카메라가 바라보는 땅이 축이 됨)
+    public float isometricDragSpeed = 250f; // 좌우 드래그 회전 속도
+    public int dragMouseButton = 0; // 0: 좌클릭, 1: 우클릭, 2: 휠클릭
     
+    private float _currentIsometricYaw = 0f;
+    private float _isometricPitch = 45f;
+    private float _isometricRadius = 20f;
+    private float _isometricHeight = 0f;
+    private Vector3 _isometricPivotPosition = Vector3.zero;
+    private Vector3 _previousMousePos;
+
     // 실제 게임 화면을 비추는 단 하나의 메인 카메라
     private Camera _mainCam;
     private Camera _skyCam; // ★ [Dual Camera] 배경(하늘) 전용 카메라
@@ -103,6 +114,43 @@ public class CameraSwitcher : MonoBehaviour
             }
         }
 
+        // 쿼터뷰(0번 카메라) 초기 상태 저장
+        if (cameras.Length > 0 && cameras[0] != null)
+        {
+            Transform cam0 = cameras[0].transform;
+            _currentIsometricYaw = cam0.eulerAngles.y;
+            _isometricPitch = cam0.eulerAngles.x;
+
+            if (isometricTarget != null)
+            {
+                _isometricPivotPosition = isometricTarget.position;
+            }
+            else
+            {
+                // 중심축이 없으면 카메라 정중앙이 바라보는 가상의 y=0 평면을 축으로 완벽히 고정 계산 (Collider 의존 X)
+                Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+                Ray ray = new Ray(cam0.position, cam0.forward);
+                if (groundPlane.Raycast(ray, out float enter))
+                {
+                    _isometricPivotPosition = ray.GetPoint(enter);
+                }
+                else
+                {
+                    // 카메라가 위를 보고 있거나 평면과 만나지 않는 예외 상황 처리
+                    _isometricPivotPosition = cam0.position + cam0.forward * 20f;
+                    _isometricPivotPosition.y = 0; // 강제로 축 높이를 0으로 고정
+                }
+            }
+            
+            // 높이는 철저하게 기존 카메라 높이로 저장
+            _isometricHeight = cam0.position.y;
+            
+            // XZ 수평면에서의 회전 반경(Radius)만 계산
+            Vector3 offset = cam0.position - _isometricPivotPosition;
+            offset.y = 0; // 높이 차이는 철저히 배제
+            _isometricRadius = offset.magnitude;
+        }
+
         // 시작 인덱스 설정 (보통 0번부터 시작)
         currentCameraIndex = 0;
         
@@ -138,6 +186,58 @@ public class CameraSwitcher : MonoBehaviour
         {
             _skyCam.transform.rotation = _mainCam.transform.rotation;
             // 위치는 Skybox 렌더링에 영향 없으므로 동기화 불필요 (하지만 해도 무방)
+        }
+
+        // 쿼터뷰 상태이고, 트랜지션 중이 아닐 때 드래그 회전 처리
+        if (currentCameraIndex == 0 && _currentTransition == null && cameras.Length > 0)
+        {
+            HandleIsometricDrag();
+        }
+    }
+
+    private void HandleIsometricDrag()
+    {
+        if (Input.GetMouseButtonDown(dragMouseButton))
+        {
+            _previousMousePos = Input.mousePosition;
+        }
+        else if (Input.GetMouseButton(dragMouseButton))
+        {
+            Vector3 mouseDelta = Input.mousePosition - _previousMousePos;
+            
+            // 화면 해상도에 비례하도록 정규화하여 회전 각도 산출
+            float dragAmount = mouseDelta.x / Screen.width; 
+            _currentIsometricYaw += dragAmount * isometricDragSpeed;
+            
+            _previousMousePos = Input.mousePosition;
+
+            // 계산된 새로운 각도 (피치는 고정)
+            Quaternion rotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
+            
+            // 현재 회전된 카메라 각도에서 축(Pivot) 기준으로 바로 뒤로 물러나는 2D(수평면) 방향 계산
+            Vector3 backDirection = rotation * Vector3.back;
+            backDirection.y = 0; 
+            backDirection.Normalize();
+
+            // 위치 지정: 축(Pivot)에서 수평 반경(Radius)만큼 뒤로 물러난 곳
+            Vector3 targetPos = _isometricPivotPosition + backDirection * _isometricRadius;
+            
+            // ★ 핵심: 높이는 기존 높이(_isometricHeight)로 무조건 잠금 처리!
+            targetPos.y = _isometricHeight;
+
+            // 0번 카메라 앵커 본체의 위치와 각도를 최신화 (다음번 카메라 전환 시 이곳을 참조하게 됨)
+            if (cameras[0] != null)
+            {
+                cameras[0].transform.position = targetPos;
+                cameras[0].transform.rotation = rotation;
+            }
+
+            // 실제 게임 화면을 표시하는 메인 카메라 즉시 이동
+            if (_mainCam != null)
+            {
+                _mainCam.transform.position = targetPos;
+                _mainCam.transform.rotation = rotation;
+            }
         }
     }
 

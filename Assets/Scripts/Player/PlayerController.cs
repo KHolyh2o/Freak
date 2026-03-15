@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -250,7 +250,7 @@ public class PlayerController : MonoBehaviour
     {
         if (isExecuting) return;
         ResetPlayerPosition(); // 위치 리셋 (중요)
-        cameraSwitcher?.SetSpecificCamera(2);
+        // cameraSwitcher?.SetSpecificCamera(2); // 자동 전환 제거 요청
         StartCoroutine(ExecuteSequence());
     }
 

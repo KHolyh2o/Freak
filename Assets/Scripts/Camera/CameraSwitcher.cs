@@ -149,6 +149,18 @@ public class CameraSwitcher : MonoBehaviour
             Vector3 offset = cam0.position - _isometricPivotPosition;
             offset.y = 0; // 높이 차이는 철저히 배제
             _isometricRadius = offset.magnitude;
+
+            // ★ 처음 시작할 때부터 Isometric Target 궤도에 맞춰 카메라 위치/회전 강제 정렬 (스크롤 튐 방지)
+            Quaternion initRotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
+            Vector3 initBackDir = initRotation * Vector3.back;
+            initBackDir.y = 0;
+            initBackDir.Normalize();
+
+            Vector3 properPos = _isometricPivotPosition + initBackDir * _isometricRadius;
+            properPos.y = _isometricHeight;
+
+            cam0.position = properPos;
+            cam0.rotation = initRotation;
         }
 
         // 시작 인덱스 설정 (보통 0번부터 시작)

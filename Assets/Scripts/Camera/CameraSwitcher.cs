@@ -197,14 +197,36 @@ public class CameraSwitcher : MonoBehaviour
         if (_skyCam != null && _mainCam != null)
         {
             _skyCam.transform.rotation = _mainCam.transform.rotation;
-            // 위치는 Skybox 렌더링에 영향 없으므로 동기화 불필요 (하지만 해도 무방)
         }
 
-        // 쿼터뷰 상태이고, 트랜지션 중이 아닐 때 드래그 회전 처리
+        // ★ 비동적 카메라 상태일 때, 다른 스크립트가 카메라를 움직이지 못하도록 매 프레임 위치 강제 고정
+        if (!IsDynamicCamera(currentCameraIndex) && _currentTransition == null && _mainCam != null && cameras.Length > currentCameraIndex)
+        {
+            Camera anchorCam = cameras[currentCameraIndex];
+            if (anchorCam != null)
+            {
+                _mainCam.transform.position = anchorCam.transform.position;
+                _mainCam.transform.rotation = anchorCam.transform.rotation;
+            }
+        }
+
+        // 쿼터뷰(index 0) 고유 기능: 드래그 회전
         if (currentCameraIndex == 0 && _currentTransition == null && cameras.Length > 0)
         {
             HandleIsometricDrag();
         }
+    }
+
+    private bool IsDynamicCamera(int index)
+    {
+        if (index < 0 || index >= cameras.Length) return false;
+        Camera cam = cameras[index];
+        if (cam == null) return false;
+
+        // 해당 카메라 혹은 부모에게 따라가기 스크립트가 있는지 체크
+        var tpf = cam.GetComponentInParent<ThirdPersonFollow>();
+        if (tpf == null) tpf = cam.GetComponentInChildren<ThirdPersonFollow>();
+        return tpf != null;
     }
 
     private void HandleIsometricDrag()
@@ -257,7 +279,7 @@ public class CameraSwitcher : MonoBehaviour
     {
         if (cameras.Length < 2) return;
         int nextIndex = (currentCameraIndex + 1) % cameras.Length;
-        Debug.Log($"[CameraSwitcher] SwitchCamera Triggered. Next: {nextIndex}");
+        Debug.Log($"[CameraSwitcher] SwitchCamera Triggered. Next: {nextIndex} (카메라 이름: {cameras[nextIndex].name})");
         SetSpecificCamera(nextIndex);
     }
 
@@ -267,13 +289,23 @@ public class CameraSwitcher : MonoBehaviour
         if (index < 0 || index >= cameras.Length) return;
         if (index == currentCameraIndex) return;
 
-        Debug.Log($"[CameraSwitcher] SetSpecificCamera: {currentCameraIndex} -> {index}");
+        Debug.Log($"[CameraSwitcher] SetSpecificCamera: {currentCameraIndex}({cameras[currentCameraIndex].name}) -> {index}({cameras[index].name})");
+        Debug.Log($"[CameraSwitcher] 타겟 위치: {cameras[index].transform.position}, 타겟 회전: {cameras[index].transform.rotation.eulerAngles}");
 
         if (_currentTransition != null) StopCoroutine(_currentTransition);
 
         Camera targetCamRef = cameras[index];
-        bool isTargetDynamic = (index == 2); 
-        Debug.Log($"[CameraSwitcher] Is Target Dynamic? {isTargetDynamic} (Index {index})");
+        bool isTargetDynamic = IsDynamicCamera(index); 
+
+        // ★ [Core Update] 타겟이 다이나믹(3인칭)이라면 해당 스크립트를 즉시 찾아서 캐싱합니다.
+        // 이를 통해 인덱스 2번 고정이 아니더라도 유연하게 작동합니다.
+        if (isTargetDynamic)
+        {
+            _mainTpf = targetCamRef.GetComponentInParent<ThirdPersonFollow>();
+            if (_mainTpf == null) _mainTpf = targetCamRef.GetComponentInChildren<ThirdPersonFollow>();
+        }
+
+        Debug.Log($"[CameraSwitcher] Is Target Dynamic? {isTargetDynamic} (Index {index}, TPF: {(_mainTpf != null ? _mainTpf.gameObject.name : "None")})");
 
         _currentTransition = StartCoroutine(SmoothMoveRoutine(targetCamRef, isTargetDynamic, 1.5f));
 
@@ -433,5 +465,81 @@ public class CameraSwitcher : MonoBehaviour
             ret[i] = Mathf.Lerp(from[i], to[i], t);
         }
         return ret;
+    }
+
+    /// <summary>
+    /// 외부(MapGenerator)에서 맵 생성이 완료되면 호출하여
+    /// 0번(쿼터뷰)과 1번(탑뷰) 카메라를 생성된 맵의 크기와 중앙 좌표에 맞춰 즉시 세팅합니다.
+    /// </summary>
+    public void AlignCamerasToMapBounds(Vector3 center, float mapWidth, float mapDepth)
+    {
+        if (cameras == null || cameras.Length < 2) return;
+
+        // --- [1. 0번 카메라 (쿼터뷰 회전)] 세팅 ---
+        if (cameras[0] != null)
+        {
+            // 회전 축(Pivot)을 맵의 정중앙으로 강제로 잡습니다.
+            _isometricPivotPosition = center;
+
+            // ★ 맵 크기에 비례하여 쿼터뷰 높이와 거리를 자동 조절
+            float maxDim = Mathf.Max(mapWidth, mapDepth);
+            _isometricHeight = Mathf.Max(_isometricHeight, maxDim * 2.25f);
+            _isometricRadius = Mathf.Max(_isometricRadius, maxDim * 2.0f);
+            
+            // 기존에 설정된 높이(_isometricHeight)와 거리(_isometricRadius), 각도(_isometricPitch, Yaw)를 바탕으로
+            // 맵 중앙을 기준으로 하는 궤도상에 0번 카메라를 알맞게 옮겨놓습니다.
+            Quaternion initRotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
+            Vector3 initBackDir = initRotation * Vector3.back;
+            initBackDir.y = 0;
+            initBackDir.Normalize();
+
+            Vector3 properPos = _isometricPivotPosition + initBackDir * _isometricRadius;
+            properPos.y = _isometricHeight;
+
+            cameras[0].transform.position = properPos;
+            cameras[0].transform.rotation = initRotation;
+            
+            // 현재 메인 카메라가 0번을 보고 있다면 즉시 동기화
+            if (currentCameraIndex == 0 && _mainCam != null && _currentTransition == null)
+            {
+                _mainCam.transform.position = properPos;
+                _mainCam.transform.rotation = initRotation;
+            }
+        }
+
+        // --- [2. 1번 카메라 (수직 탑뷰)] 세팅 ---
+        if (cameras[1] != null)
+        {
+            float maxDimension = Mathf.Max(mapWidth, mapDepth);
+            
+            // 시야 보정을 위해 넉넉한 여백 추가 (2.0배)
+            float requiredHeight = maxDimension * 2.0f; 
+            // 너무 낮게 깔리지 않도록 최소 높이 보장
+            if (requiredHeight < 20f) requiredHeight = 20f; 
+
+            // 위치: X, Z는 맵 중앙, Y는 높이
+            Vector3 topViewPos = new Vector3(center.x, requiredHeight, center.z);
+            // 각도: 완벽하게 아래를 내려다보도록 (Pitch = 90)
+            Quaternion topViewRot = Quaternion.Euler(90f, 0f, 0f);
+
+            cameras[1].transform.position = topViewPos;
+            cameras[1].transform.rotation = topViewRot;
+
+            // 만약 1번 카메라가 직교(Orthographic) 투영을 쓴다면 Size도 맵 폭에 맞춰 늘려줍니다.
+            if (cameras[1].orthographic)
+            {
+                cameras[1].orthographicSize = maxDimension * 1.0f; 
+            }
+            
+            // 현재 메인 카메라가 1번을 보고 있다면 즉시 동기화
+            if (currentCameraIndex == 1 && _mainCam != null && _currentTransition == null)
+            {
+                _mainCam.transform.position = topViewPos;
+                _mainCam.transform.rotation = topViewRot;
+                if (_mainCam.orthographic) _mainCam.orthographicSize = cameras[1].orthographicSize;
+            }
+        }
+
+        Debug.Log($"[CameraSwitcher] 카메라가 맵 정중앙({center})에 맞춰 세팅되었습니다!");
     }
 }

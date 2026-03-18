@@ -48,8 +48,8 @@ public class MapGenerator : MonoBehaviour
         }
         mapDataDict.Clear();
 
-        string fileName = "Stage" + stageNumber + "_Map";
-        TextAsset csvData = Resources.Load<TextAsset>(fileName);
+        string fileName = "Stage" + stageNumber+1 + "_Map";
+        TextAsset csvData = Resources.Load<TextAsset>("MapData/" + fileName);
 
         if (csvData == null) 
         {
@@ -147,7 +147,7 @@ public class MapGenerator : MonoBehaviour
             case BlockType.Stone: targetPrefab = stonePrefab; break; 
         }
 
-        if (targetPrefab != null)
+        if (targetPrefab != null)   
         {
             // Start/End 블록은 extraOption에 Y축 회전값(각도)이 들어있으면 해당 방향으로 회전시켜 생성
             Quaternion spawnRotation = Quaternion.identity;

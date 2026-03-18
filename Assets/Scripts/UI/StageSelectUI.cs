@@ -192,13 +192,11 @@ public class StageSelectUI : MonoBehaviour
 
     void LoadStage(int index)
     {
-        // 씬 이름 규칙에 따라 로드 (예: Stage_00, Stage_01 ...)
-        string sceneName = $"Stage_{index:D2}"; // 0 -> "Stage_00"
+        // 선택된 스테이지 번호를 저장 (play_scene에서 읽어감)
+        PlayerPrefs.SetInt("SelectedStage", index);
+        PlayerPrefs.Save();
         
-        // 씬이 존재하는지 확인은 못하지만 로드 시도
-        Debug.Log($"Loading Scene: {sceneName}");
-        
-        // 실제 로드 (빌드 세팅에 씬이 있어야 함)
-        // SceneManager.LoadScene(sceneName); 
+        Debug.Log($"[StageSelectUI] 스테이지 {index} 선택 → Play 씬으로 이동");
+        SceneManager.LoadScene("Play");
     }
 }

@@ -42,10 +42,7 @@ public class CameraSwitcher : MonoBehaviour
             _mainTpf = _mainCam.GetComponentInParent<ThirdPersonFollow>();
             if (_mainTpf == null) _mainTpf = _mainCam.GetComponentInChildren<ThirdPersonFollow>();
             
-            if (_mainTpf != null) Debug.Log($"[CameraSwitcher] Found TPF on {_mainTpf.gameObject.name}");
-            else Debug.LogError($"[CameraSwitcher] CRITICAL: Could not find ThirdPersonFollow on/near {_mainCam.name}!");
-
-            Debug.Log($"[CameraSwitcher] Main Camera Assigned: {_mainCam.name} (Index 2)");
+            if (_mainTpf == null) Debug.LogWarning($"[CameraSwitcher] ThirdPersonFollow not found on/near {_mainCam.name}");
         }
         else
         {
@@ -118,7 +115,7 @@ public class CameraSwitcher : MonoBehaviour
         if (cameras.Length > 0 && cameras[0] != null)
         {
             Transform cam0 = cameras[0].transform;
-            _currentIsometricYaw = cam0.eulerAngles.y;
+            _currentIsometricYaw = cam0.eulerAngles.y + 180f;
             _isometricPitch = cam0.eulerAngles.x;
 
             if (isometricTarget != null)
@@ -191,7 +188,11 @@ public class CameraSwitcher : MonoBehaviour
         }
     }
 
-    // SkyCam 회전 동기화
+    // 비동적 카메라 전환 후 카메라가 고정될 좌표를 저장
+    private Vector3 _lockedPosition;
+    private Quaternion _lockedRotation;
+    private bool _positionLocked = false;
+
     void LateUpdate()
     {
         if (_skyCam != null && _mainCam != null)
@@ -199,15 +200,11 @@ public class CameraSwitcher : MonoBehaviour
             _skyCam.transform.rotation = _mainCam.transform.rotation;
         }
 
-        // ★ 비동적 카메라 상태일 때, 다른 스크립트가 카메라를 움직이지 못하도록 매 프레임 위치 강제 고정
-        if (!IsDynamicCamera(currentCameraIndex) && _currentTransition == null && _mainCam != null && cameras.Length > currentCameraIndex)
+        // 비동적 카메라 상태일 때, 저장된 좌표로 매 프레임 강제 고정
+        if (_positionLocked && _currentTransition == null && _mainCam != null)
         {
-            Camera anchorCam = cameras[currentCameraIndex];
-            if (anchorCam != null)
-            {
-                _mainCam.transform.position = anchorCam.transform.position;
-                _mainCam.transform.rotation = anchorCam.transform.rotation;
-            }
+            _mainCam.transform.position = _lockedPosition;
+            _mainCam.transform.rotation = _lockedRotation;
         }
 
         // 쿼터뷰(index 0) 고유 기능: 드래그 회전
@@ -279,33 +276,25 @@ public class CameraSwitcher : MonoBehaviour
     {
         if (cameras.Length < 2) return;
         int nextIndex = (currentCameraIndex + 1) % cameras.Length;
-        Debug.Log($"[CameraSwitcher] SwitchCamera Triggered. Next: {nextIndex} (카메라 이름: {cameras[nextIndex].name})");
         SetSpecificCamera(nextIndex);
     }
 
-    // ★ 단일 카메라 시스템: 메인 카메라 몸체 하나가 이곳저곳으로 날아다닙니다.
     public void SetSpecificCamera(int index)
     {
         if (index < 0 || index >= cameras.Length) return;
         if (index == currentCameraIndex) return;
-
-        Debug.Log($"[CameraSwitcher] SetSpecificCamera: {currentCameraIndex}({cameras[currentCameraIndex].name}) -> {index}({cameras[index].name})");
-        Debug.Log($"[CameraSwitcher] 타겟 위치: {cameras[index].transform.position}, 타겟 회전: {cameras[index].transform.rotation.eulerAngles}");
 
         if (_currentTransition != null) StopCoroutine(_currentTransition);
 
         Camera targetCamRef = cameras[index];
         bool isTargetDynamic = IsDynamicCamera(index); 
 
-        // ★ [Core Update] 타겟이 다이나믹(3인칭)이라면 해당 스크립트를 즉시 찾아서 캐싱합니다.
-        // 이를 통해 인덱스 2번 고정이 아니더라도 유연하게 작동합니다.
+        // 타겟이 다이나믹(3인칭)이라면 해당 스크립트를 캐싱
         if (isTargetDynamic)
         {
             _mainTpf = targetCamRef.GetComponentInParent<ThirdPersonFollow>();
             if (_mainTpf == null) _mainTpf = targetCamRef.GetComponentInChildren<ThirdPersonFollow>();
         }
-
-        Debug.Log($"[CameraSwitcher] Is Target Dynamic? {isTargetDynamic} (Index {index}, TPF: {(_mainTpf != null ? _mainTpf.gameObject.name : "None")})");
 
         _currentTransition = StartCoroutine(SmoothMoveRoutine(targetCamRef, isTargetDynamic, 1.5f));
 
@@ -429,8 +418,10 @@ public class CameraSwitcher : MonoBehaviour
             
             // FOV도 타겟 값으로 고정
             _mainCam.fieldOfView = targetRef.fieldOfView;
-            
-            Debug.Log("[CameraSwitcher] Fixed in Fake Ortho Mode.");
+
+            _lockedPosition = targetRef.transform.position;
+            _lockedRotation = targetRef.transform.rotation;
+            _positionLocked = true;
         }
         else
         {
@@ -438,19 +429,19 @@ public class CameraSwitcher : MonoBehaviour
             if (isDynamicTarget && _mainTpf != null)
             {
                 _mainTpf.enabled = true;
+                _positionLocked = false;
             }
             else
             {
                 _mainCam.transform.position = targetRef.transform.position;
                 _mainCam.transform.rotation = targetRef.transform.rotation;
+                _lockedPosition = targetRef.transform.position;
+                _lockedRotation = targetRef.transform.rotation;
+                _positionLocked = true;
             }
 
-            // 원근 타겟의 원래 FOV로 복구
             _mainCam.fieldOfView = isDynamicTarget ? _defaultFOV : targetRef.fieldOfView;
-            
-            // 순정 매트릭스로 복구
             _mainCam.ResetProjectionMatrix();
-            Debug.Log("[CameraSwitcher] Reset to Standard Perspective.");
         }
 
         _currentTransition = null;

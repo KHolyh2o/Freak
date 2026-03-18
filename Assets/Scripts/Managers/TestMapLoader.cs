@@ -3,22 +3,19 @@ using UnityEngine;
 
 public class TestMapLoader : MonoBehaviour
 {
-    [Header("Testing Components")]
     public MapGenerator mapGenerator;
     public CameraSwitcher cameraSwitcher;
-    
-    [Header("Test Settings")]
-    public int testStageNumber = 1;
 
     IEnumerator Start()
     {
-        // 카메라 스위처가 초기화를 마칠 때까지 1프레임 대기
-        yield return null;
+        yield return null; // CameraSwitcher 초기화 대기
+
+        // PlayerPrefs에서 선택된 스테이지 번호 읽기 (기본값: 1)
+        int stageNumber = PlayerPrefs.GetInt("SelectedStage", 1);
 
         if (mapGenerator != null)
         {
-            Debug.Log($"[TestMapLoader] 게임 시작! {testStageNumber}번 스테이지 맵 생성 테스트를 시작합니다.");
-            mapGenerator.LoadStage(testStageNumber);
+            mapGenerator.LoadStage(stageNumber);
         }
         else
         {
@@ -33,12 +30,7 @@ public class TestMapLoader : MonoBehaviour
         {
             if (cameraSwitcher != null)
             {
-                Debug.Log("[TestMapLoader] 스페이스바 입력! 카메라 전환 테스트");
                 cameraSwitcher.SwitchCamera();
-            }
-            else
-            {
-                Debug.LogWarning("[TestMapLoader] CameraSwitcher가 연결되어 있지 않습니다!");
             }
         }
     }

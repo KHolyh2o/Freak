@@ -11,11 +11,12 @@ public class CameraSwitcher : MonoBehaviour
     public Transform isometricTarget; // 회전 중심축 (비워두면 카메라가 바라보는 땅이 축이 됨)
     public float isometricDragSpeed = 250f; // 좌우 드래그 회전 속도
     public int dragMouseButton = 0; // 0: 좌클릭, 1: 우클릭, 2: 휠클릭
+    [Tooltip("화면에 맵이 너무 위/아래에 쏠릴 때 보정하는 오프셋 (양수면 맵이 화면 아래로 내려옵니다)")]
+    public float isometricScreenYOffset = 0f;
     
     private float _currentIsometricYaw = 0f;
     private float _isometricPitch = 45f;
-    private float _isometricRadius = 20f;
-    private float _isometricHeight = 0f;
+    private float _isometricDistance = 20f;
     private Vector3 _isometricPivotPosition = Vector3.zero;
     private Vector3 _previousMousePos;
 
@@ -139,22 +140,15 @@ public class CameraSwitcher : MonoBehaviour
                 }
             }
             
-            // 높이는 철저하게 기존 카메라 높이로 저장
-            _isometricHeight = cam0.position.y;
-            
-            // XZ 수평면에서의 회전 반경(Radius)만 계산
-            Vector3 offset = cam0.position - _isometricPivotPosition;
-            offset.y = 0; // 높이 차이는 철저히 배제
-            _isometricRadius = offset.magnitude;
+            // 중심축과 카메라 사이의 현재 거리를 저장
+            _isometricDistance = Vector3.Distance(cam0.position, _isometricPivotPosition);
 
             // ★ 처음 시작할 때부터 Isometric Target 궤도에 맞춰 카메라 위치/회전 강제 정렬 (스크롤 튐 방지)
             Quaternion initRotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
-            Vector3 initBackDir = initRotation * Vector3.back;
-            initBackDir.y = 0;
-            initBackDir.Normalize();
-
-            Vector3 properPos = _isometricPivotPosition + initBackDir * _isometricRadius;
-            properPos.y = _isometricHeight;
+            Vector3 properPos = _isometricPivotPosition + (initRotation * Vector3.back) * _isometricDistance;
+            
+            // 화면 상하 쏠림 오프셋 보정 (카메라의 로컬 Up 방향으로 추가 이동시켜 시점을 조절)
+            properPos += initRotation * Vector3.up * isometricScreenYOffset;
 
             cam0.position = properPos;
             cam0.rotation = initRotation;
@@ -245,16 +239,11 @@ public class CameraSwitcher : MonoBehaviour
             // 계산된 새로운 각도 (피치는 고정)
             Quaternion rotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
             
-            // 현재 회전된 카메라 각도에서 축(Pivot) 기준으로 바로 뒤로 물러나는 2D(수평면) 방향 계산
-            Vector3 backDirection = rotation * Vector3.back;
-            backDirection.y = 0; 
-            backDirection.Normalize();
-
-            // 위치 지정: 축(Pivot)에서 수평 반경(Radius)만큼 뒤로 물러난 곳
-            Vector3 targetPos = _isometricPivotPosition + backDirection * _isometricRadius;
+            // 위치 지정: 중앙축(Pivot)에서 설정된 거리(Distance)만큼 뒷통수 방향(-forward)으로 물러난 곳
+            Vector3 targetPos = _isometricPivotPosition + (rotation * Vector3.back) * _isometricDistance;
             
-            // ★ 핵심: 높이는 기존 높이(_isometricHeight)로 무조건 잠금 처리!
-            targetPos.y = _isometricHeight;
+            // 화면 상하 쏠림 오프셋 보정
+            targetPos += rotation * Vector3.up * isometricScreenYOffset;
 
             // 0번 카메라 앵커 본체의 위치와 각도를 최신화 (다음번 카메라 전환 시 이곳을 참조하게 됨)
             if (cameras[0] != null)
@@ -268,6 +257,10 @@ public class CameraSwitcher : MonoBehaviour
             {
                 _mainCam.transform.position = targetPos;
                 _mainCam.transform.rotation = rotation;
+
+                // ★ 마우스를 뗐을 때 카메라가 원래 자리(드래그 전 위치)로 돌아가는(Snap) 것을 방지하기 위해 잠금 좌표 갱신
+                _lockedPosition = targetPos;
+                _lockedRotation = rotation;
             }
         }
     }
@@ -472,20 +465,22 @@ public class CameraSwitcher : MonoBehaviour
             // 회전 축(Pivot)을 맵의 정중앙으로 강제로 잡습니다.
             _isometricPivotPosition = center;
 
-            // ★ 맵 크기에 비례하여 쿼터뷰 높이와 거리를 자동 조절
-            float maxDim = Mathf.Max(mapWidth, mapDepth);
-            _isometricHeight = Mathf.Max(_isometricHeight, maxDim * 3.25f);
-            _isometricRadius = Mathf.Max(_isometricRadius, maxDim * 1.5f);
+            // ★ 맵 크기에 비례하여 카메라 후퇴 거리(Distance) 자동 조절 (FOV 활용)
+            float mapRadius = Mathf.Max(mapWidth, mapDepth) * 0.5f * 1.25f; // 1.25는 시야에 한눈에 들어오게 하는 여백(Padding) 비율
+            float fovRad = cameras[0].fieldOfView * 0.5f * Mathf.Deg2Rad;
+            float requiredDistance = mapRadius / Mathf.Sin(fovRad);
             
-            // 기존에 설정된 높이(_isometricHeight)와 거리(_isometricRadius), 각도(_isometricPitch, Yaw)를 바탕으로
-            // 맵 중앙을 기준으로 하는 궤도상에 0번 카메라를 알맞게 옮겨놓습니다.
+            // 너무 확대되는 것을 방지하기 위한 최소 거리 보장
+            if (requiredDistance < 20f) requiredDistance = 20f;
+            
+            _isometricDistance = requiredDistance;
+            
+            // 맵 중앙을 기준으로 설정된 각도에서 카메라 뒷통수(-forward) 방향으로 당겨 궤도상에 올립니다.
             Quaternion initRotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
-            Vector3 initBackDir = initRotation * Vector3.back;
-            initBackDir.y = 0;
-            initBackDir.Normalize();
-
-            Vector3 properPos = _isometricPivotPosition + initBackDir * _isometricRadius;
-            properPos.y = _isometricHeight;
+            Vector3 properPos = _isometricPivotPosition + (initRotation * Vector3.back) * _isometricDistance;
+            
+            // 화면 상하 쏠림 오프셋 보정
+            properPos += initRotation * Vector3.up * isometricScreenYOffset;
 
             cameras[0].transform.position = properPos;
             cameras[0].transform.rotation = initRotation;
@@ -495,6 +490,10 @@ public class CameraSwitcher : MonoBehaviour
             {
                 _mainCam.transform.position = properPos;
                 _mainCam.transform.rotation = initRotation;
+                
+                // ★ 잠금 좌표 동기화 (되돌아감 방지)
+                _lockedPosition = properPos;
+                _lockedRotation = initRotation;
             }
         }
 
@@ -528,6 +527,10 @@ public class CameraSwitcher : MonoBehaviour
                 _mainCam.transform.position = topViewPos;
                 _mainCam.transform.rotation = topViewRot;
                 if (_mainCam.orthographic) _mainCam.orthographicSize = cameras[1].orthographicSize;
+
+                // ★ 잠금 좌표 동기화 (되돌아감 방지)
+                _lockedPosition = topViewPos;
+                _lockedRotation = topViewRot;
             }
         }
 

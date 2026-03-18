@@ -839,6 +839,10 @@ PrefabInstance:
       propertyPath: cameras.Array.data[2]
       value: 
       objectReference: {fileID: 1877659214}
+    - target: {fileID: 6450959029051815979, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: isometricScreenYOffset
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 7594869969687318652, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
       propertyPath: target
       value: 

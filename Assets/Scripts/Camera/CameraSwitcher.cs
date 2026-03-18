@@ -115,7 +115,7 @@ public class CameraSwitcher : MonoBehaviour
         if (cameras.Length > 0 && cameras[0] != null)
         {
             Transform cam0 = cameras[0].transform;
-            _currentIsometricYaw = cam0.eulerAngles.y + 180f;
+            _currentIsometricYaw = cam0.eulerAngles.y + 90f;
             _isometricPitch = cam0.eulerAngles.x;
 
             if (isometricTarget != null)
@@ -474,8 +474,8 @@ public class CameraSwitcher : MonoBehaviour
 
             // ★ 맵 크기에 비례하여 쿼터뷰 높이와 거리를 자동 조절
             float maxDim = Mathf.Max(mapWidth, mapDepth);
-            _isometricHeight = Mathf.Max(_isometricHeight, maxDim * 2.25f);
-            _isometricRadius = Mathf.Max(_isometricRadius, maxDim * 2.0f);
+            _isometricHeight = Mathf.Max(_isometricHeight, maxDim * 3.25f);
+            _isometricRadius = Mathf.Max(_isometricRadius, maxDim * 1.5f);
             
             // 기존에 설정된 높이(_isometricHeight)와 거리(_isometricRadius), 각도(_isometricPitch, Yaw)를 바탕으로
             // 맵 중앙을 기준으로 하는 궤도상에 0번 카메라를 알맞게 옮겨놓습니다.

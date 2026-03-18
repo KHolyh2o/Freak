@@ -48,7 +48,7 @@ public class MapGenerator : MonoBehaviour
         }
         mapDataDict.Clear();
 
-        string fileName = "Stage" + stageNumber+1 + "_Map";
+        string fileName = $"Stage{(stageNumber + 1):D2}_Map";
         TextAsset csvData = Resources.Load<TextAsset>("MapData/" + fileName);
 
         if (csvData == null) 
@@ -57,7 +57,7 @@ public class MapGenerator : MonoBehaviour
             return;
         }
 
-        string[] rows = csvData.text.Split('\n');
+        string[] rows = csvData.text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
         
         // ★ 맵 범위 계산용
         int minX = int.MaxValue;

@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8245443764214237487, guid: 05138b84af6bf75488778926e17e2fca, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.2
+      value: -1.2
       objectReference: {fileID: 0}
     - target: {fileID: -7124018487711227270, guid: 05138b84af6bf75488778926e17e2fca, type: 3}
       propertyPath: m_Materials.Array.data[0]
@@ -97,4 +97,4 @@ BoxCollider:
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 0.5, y: 0.6, z: 0.5}
-  m_Center: {x: 0, y: 1.51, z: 0}
+  m_Center: {x: 0, y: 0.51, z: 0}

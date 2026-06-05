@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.Collections;
 using System.Collections.Generic;
-
+using UnityEngine.EventSystems;
 public class StageSelectUI : MonoBehaviour
 {
     [Header("UI 구성요소")]
@@ -12,7 +12,7 @@ public class StageSelectUI : MonoBehaviour
     public GameObject stageButtonPrefab;
 
     [Header("설정")]
-    public int totalStages = 15;
+    public int totalStages = 20;
     public float centerScale = 1.2f; // 중앙 아이템 확대 배율
     public float sideScale = 0.8f;   // 주변 아이템 축소 배율
     public float snapSpeed = 10f;    // 스냅 속도 (높을수록 빠름)
@@ -26,6 +26,54 @@ public class StageSelectUI : MonoBehaviour
     void Start()
     {
         InitializeStageButtons();
+        AddPaddingForCentering();
+        SetupDragEvents(); // 드래그 이벤트 자동 연결
+    }
+
+    void SetupDragEvents()
+    {
+        if (scrollRect == null) return;
+
+        // 기존에 잘못 추가된 EventTrigger가 있다면 제거 (스크롤 먹통 원인)
+        EventTrigger trigger = scrollRect.gameObject.GetComponent<EventTrigger>();
+        if (trigger != null) Destroy(trigger);
+
+        // 안전한 커스텀 드래그 리스너 부착
+        DragListener listener = scrollRect.gameObject.GetComponent<DragListener>();
+        if (listener == null) listener = scrollRect.gameObject.AddComponent<DragListener>();
+
+        listener.scrollRect = scrollRect;
+        listener.onBeginDrag = () => { isDragging = true; };
+        listener.onEndDrag = () => { isDragging = false; };
+    }
+
+    void AddPaddingForCentering()
+    {
+        HorizontalLayoutGroup layout = contentPanel.GetComponent<HorizontalLayoutGroup>();
+        if (layout != null)
+        {
+            // Viewport(스크롤 영역)의 절반 크기를 구함
+            RectTransform viewport = scrollRect.viewport != null ? scrollRect.viewport : scrollRect.GetComponent<RectTransform>();
+            float padding = viewport.rect.width / 2f;
+
+            // 버튼 자체의 너비 절반을 빼줘야 버튼의 중심이 화면 중앙에 정확히 위치함
+            if (stageButtons.Count > 0)
+            {
+                padding -= (stageButtons[0].rect.width * stageButtons[0].localScale.x) / 2f;
+            }
+
+            // 레이아웃의 좌우 여백 설정
+            layout.padding.left = Mathf.Max(0, Mathf.RoundToInt(padding));
+            layout.padding.right = Mathf.Max(0, Mathf.RoundToInt(padding));
+            
+            // ★ 스크롤뷰 고무줄(튕김) 현상 방지: Content가 자기 크기를 제대로 알도록 설정
+            ContentSizeFitter fitter = contentPanel.GetComponent<ContentSizeFitter>();
+            if (fitter == null) fitter = contentPanel.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // 레이아웃 즉시 업데이트
+            LayoutRebuilder.ForceRebuildLayoutImmediate(contentPanel);
+        }
     }
 
     void Update()
@@ -34,7 +82,8 @@ public class StageSelectUI : MonoBehaviour
 
         UpdateButtonScales();
 
-        if (!isDragging)
+        // 사용자가 터치 중(isDragging)이 아니며, 스크롤 관성 속도가 충분히 줄어들었을 때만 중앙 정렬(Snap) 실행
+        if (!isDragging && Mathf.Abs(scrollRect.velocity.x) < 50f)
         {
             SnapToNearest();
         }
@@ -141,17 +190,20 @@ public class StageSelectUI : MonoBehaviour
         selectedStageIndex = minIndex;
 
         // 목표: 선택된 버튼(world X)을 뷰포트 중앙(world X)으로 이동
-        // 현재 오차 = ViewportCenter - ButtonCenter
-        // 이 오차만큼 Content를 이동시켜야 함
-        float diff = viewportCenter - stageButtons[minIndex].position.x;
+        // 현재 오차 = ViewportCenter - ButtonCenter (World Space)
+        float diffWorld = viewportCenter - stageButtons[minIndex].position.x;
 
-        // Content의 현재 위치에서 오차를 더함 (Lerp 이용)
-        float targetX = contentPanel.anchoredPosition.x + diff;
+        // 월드 좌표 오차를 로컬 좌표계 오차로 변환 (UI 캔버스 스케일 보정)
+        float diffLocal = diffWorld / contentPanel.lossyScale.x;
+
+        // Content의 현재 위치에서 로컬 오차를 더함
+        float targetX = contentPanel.anchoredPosition.x + diffLocal;
         
         // *중요* 만약 오차가 아주 작으면(스냅 완료) 계산 중지 (떨림 방지)
-        if (Mathf.Abs(diff) < 0.1f) 
+        if (Mathf.Abs(diffLocal) < 0.1f) 
         {
             contentPanel.anchoredPosition = new Vector2(targetX, contentPanel.anchoredPosition.y);
+            scrollRect.velocity = Vector2.zero; // 완벽히 멈춤
             return;
         }
 
@@ -198,5 +250,29 @@ public class StageSelectUI : MonoBehaviour
         
         Debug.Log($"[StageSelectUI] 스테이지 {index} 선택 → Play 씬으로 이동");
         SceneManager.LoadScene("Play");
+    }
+}
+
+public class DragListener : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IDragHandler
+{
+    public ScrollRect scrollRect;
+    public System.Action onBeginDrag;
+    public System.Action onEndDrag;
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        onBeginDrag?.Invoke();
+        if (scrollRect != null) scrollRect.OnBeginDrag(eventData);
+    }
+    
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (scrollRect != null) scrollRect.OnDrag(eventData);
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        onEndDrag?.Invoke();
+        if (scrollRect != null) scrollRect.OnEndDrag(eventData);
     }
 }

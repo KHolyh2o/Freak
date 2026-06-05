@@ -1,5 +1,5 @@
-x,z,y,type,extraOption
-0,0,0,Start,
-0,1,0,Floor,
-1,1,0,Floor,
-1,0,0,End,
+x,z,y,type,extraOption,cost
+0,0,0,Start,0_22,99
+0,1,0,Floor,,
+1,1,0,Floor,,
+1,0,0,End,,

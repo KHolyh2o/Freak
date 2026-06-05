@@ -1,0 +1,9 @@
+x,z,y,type,extraOption,cost
+1,0,0,Floor,90,
+1,0,0,Floor,,
+2,0,0,Floor,,
+3,0,0,Floor,,
+3,1,0,Floor,,
+4,1,0,End,,
+2,1,0,Floor,,
+2,1,0,Box,,

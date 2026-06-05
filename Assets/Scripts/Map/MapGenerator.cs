@@ -59,11 +59,13 @@ public class MapGenerator : MonoBehaviour
 
         string[] rows = csvData.text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
         
-        // ★ 맵 범위 계산용
+        // ★ 맵 범위 및 코스트 저장용
         int minX = int.MaxValue;
         int maxX = int.MinValue;
         int minZ = int.MaxValue;
         int maxZ = int.MinValue;
+        int parsedMaxCost = -1; // -1이면 설정 안 됨
+        GameObject spawnedStartBox = null;
 
         // 첫 줄은 헤더이므로 index 1부터
         for (int i = 1; i < rows.Length; i++)
@@ -102,10 +104,24 @@ public class MapGenerator : MonoBehaviour
             }
 
             block.extraOption = columns.Length > 4 ? columns[4] : "";
+            
+            // 6번째 열(Cost) 파싱
+            if (columns.Length > 5 && block.type == BlockType.Start)
+            {
+                if (int.TryParse(columns[5].Trim(), out int parsedCost))
+                {
+                    parsedMaxCost = parsedCost;
+                }
+            }
+
             Vector3 pos = new Vector3(block.x, block.y, block.z);
             mapDataDict[pos] = block;
 
-            SpawnBlock(block, pos);
+            GameObject spawnedBlock = SpawnBlock(block, pos);
+            if (block.type == BlockType.Start && spawnedBlock != null)
+            {
+                spawnedStartBox = spawnedBlock;
+            }
         }
 
         // 2. 맵의 중앙 밎 범위 계산
@@ -129,10 +145,23 @@ public class MapGenerator : MonoBehaviour
             {
                 Debug.LogWarning("[MapGenerator] CameraSwitcher가 연결되어 있지 않아 카메라 자동 세팅을 건너뜁니다.");
             }
+
+            // 4. 플레이어 컨트롤러 업데이트 (맵 생성이 완료된 후 실행)
+            PlayerController pc = FindObjectOfType<PlayerController>();
+            if (pc != null && spawnedStartBox != null)
+            {
+                pc.startBox = spawnedStartBox; // 새로운 StartBox 할당
+                if (parsedMaxCost > 0)
+                {
+                    pc.maxCommandCost = parsedMaxCost; // 코스트 설정
+                    Debug.Log($"[MapGenerator] Start 블록에서 코스트 한도를 {parsedMaxCost}로 설정했습니다.");
+                }
+                pc.ResetGame(); // 할당된 StartBox 기준으로 리셋
+            }
         }
     }
 
-    private void SpawnBlock(BlockDataInfo block, Vector3 pos)
+    private GameObject SpawnBlock(BlockDataInfo block, Vector3 pos)
     {
         GameObject targetPrefab = null;
 
@@ -149,19 +178,19 @@ public class MapGenerator : MonoBehaviour
 
         if (targetPrefab != null)   
         {
-            // Start/End 블록은 extraOption에 Y축 회전값(각도)이 들어있으면 해당 방향으로 회전시켜 생성
+            // Start/End 블록은 extraOption에 Y축 회전값(각도)이 들어있음
             Quaternion spawnRotation = Quaternion.identity;
             if ((block.type == BlockType.Start || block.type == BlockType.End) 
                 && !string.IsNullOrEmpty(block.extraOption))
             {
-                string rotStr = block.extraOption.Trim();
-                if (float.TryParse(rotStr, out float yRotation))
+                if (float.TryParse(block.extraOption.Trim(), out float yRotation))
                 {
                     spawnRotation = Quaternion.Euler(0f, yRotation, 0f);
                 }
             }
 
-            Instantiate(targetPrefab, pos, spawnRotation, this.transform);
+            return Instantiate(targetPrefab, pos, spawnRotation, this.transform);
         }
+        return null;
     }
 }

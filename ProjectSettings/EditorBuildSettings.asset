@@ -17,4 +17,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/CreativeMode.unity
     guid: a31e81b5d4219d14da94c5a851bf79fe
+  - enabled: 1
+    path: Assets/Scenes/MuseumHub.unity
+    guid: e6d671495bc834cb6a7a85a506701818
   m_configObjects: {}

@@ -1,23 +1,32 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement; // ¾À °ü¸®¸¦ À§ÇØ ÇÊ¼ö!
+using UnityEngine.SceneManagement; // ì”¬ ê´€ë¦¬ë¥¼ ìœ„í•´ í•„ìˆ˜!
 
 public class SceneController : MonoBehaviour
 {
-    // ¹öÆ°¿¡ ¿¬°áÇØ¼­ »ç¿ëÇÒ ÇÔ¼öÀÔ´Ï´Ù.
+    // ë²„íŠ¼ì— ì—°ê²°í•´ì„œ ì‚¬ìš©í•  í•¨ìˆ˜ì…ë‹ˆë‹¤.
     public void ChangeScene(string sceneName)
     {
-        // ¡Ú (Áß¿ä) ¾ÀÀ» ÀÌµ¿ÇÏ±â Àü¿¡ ¸ØÃá ½Ã°£À» ´Ù½Ã Èå¸£°Ô ¸¸µì´Ï´Ù.
+        // ì‹œê°„ì„ ë‹¤ì‹œ íë¥´ê²Œ í•©ë‹ˆë‹¤.
         Time.timeScale = 1f;
+
+        // í”Œë ˆì´ ì”¬ì—ì„œ ë’¤ë¡œê°€ê¸°(StageSelect ë“±)ë¥¼ ëˆ„ë¥¼ ë•Œ, ì‡¼ë£¸ì—ì„œ ì¶œë°œí–ˆë‹¤ë©´ ì‡¼ë£¸ ì”¬ìœ¼ë¡œ ìš°íšŒì‹œí‚µë‹ˆë‹¤.
+        if (sceneName.Contains("StageSelect") || sceneName.Contains("Main"))
+        {
+            if (PlayerPrefs.GetInt("ReturnToShowroom", 0) == 1)
+            {
+                sceneName = "MuseumHub"; 
+            }
+        }
 
         SceneManager.LoadScene(sceneName);
     }
 
-    // °ÔÀÓ Á¾·á ÇÔ¼ö
+    // ê²Œì„ ì¢…ë£Œ í•¨ìˆ˜
     public void QuitGame()
     {
         Application.Quit();
-        Debug.Log("°ÔÀÓ Á¾·á!");
+        Debug.Log("ê²Œì„ ì¢…ë£Œ!");
     }
 }

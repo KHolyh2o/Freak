@@ -68,6 +68,13 @@ public class PlayerController : MonoBehaviour
 
     void Awake()
     {
+        // 쇼룸(전시관)에서는 퍼즐용 PlayerController가 작동하여 위치를 강제로 1.33으로 바꾸는 것을 막습니다.
+        if (GetComponent<Showroom.MuseumPlayerController>() != null)
+        {
+            this.enabled = false;
+            return;
+        }
+
         // UI 등 초기화에 필요한 값만 미리 계산
         if (commandSlotPrefab != null)
         {
@@ -78,6 +85,9 @@ public class PlayerController : MonoBehaviour
 
     IEnumerator Start()
     {
+        // 컴포넌트가 꺼져있다면(쇼룸 씬) 여기서 즉시 중단합니다.
+        if (!this.enabled) yield break;
+
         soundManager = FindObjectOfType<SoundManager>();
         cameraSwitcher = FindObjectOfType<CameraSwitcher>();
 

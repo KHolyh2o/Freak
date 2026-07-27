@@ -11,8 +11,8 @@ public class StageSelectUI : MonoBehaviour
     public RectTransform contentPanel;
     public GameObject stageButtonPrefab;
 
-    [Header("설정")]
-    public int totalStages = 20;
+    [Header("스테이지 설정")]
+    public int totalStages = 15;
     public float centerScale = 1.2f; // 중앙 아이템 확대 배율
     public float sideScale = 0.8f;   // 주변 아이템 축소 배율
     public float snapSpeed = 10f;    // 스냅 속도 (높을수록 빠름)
@@ -244,6 +244,9 @@ public class StageSelectUI : MonoBehaviour
 
     void LoadStage(int index)
     {
+        // 일반 스테이지 선택 화면에서 진입할 경우 쇼룸 복귀 플래그를 꺼줍니다.
+        PlayerPrefs.SetInt("ReturnToShowroom", 0);
+        
         // 선택된 스테이지 번호를 저장 (play_scene에서 읽어감)
         PlayerPrefs.SetInt("SelectedStage", index);
         PlayerPrefs.Save();

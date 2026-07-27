@@ -1,6 +1,10 @@
 x,z,y,type,extraOption,cost
-0,0,0,Start,180,99
-0,-1,0,Floor,,
-0,-2,0,Floor,,
-1,-2,0,Floor,,
-2,-2,0,End,,
+0,0,0,Start,90,99
+1,0,0,Floor,,
+2,0,0,Floor,,
+2,1,0,Floor,,
+2,2,0,Floor,,
+1,2,0,Floor,,
+0,2,0,End,,
+1,1,0,Floor,,
+1,1,0,Tree,,

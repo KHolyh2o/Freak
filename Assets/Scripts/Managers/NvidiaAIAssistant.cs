@@ -1,0 +1,131 @@
+using System.Collections;
+using System.Text;
+using UnityEngine;
+using UnityEngine.Networking;
+using System.Text.RegularExpressions;
+
+public class NvidiaAIAssistant : MonoBehaviour
+{
+    public static NvidiaAIAssistant Instance { get; private set; }
+
+    [Header("API Settings")]
+    [Tooltip("Enter your NVIDIA NIM API Key here")]
+    public string apiKey = "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";
+    private string apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+    public string modelName = "meta/llama-3.1-70b-instruct";
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    public void RequestAIHelp(string missingSkill)
+    {
+        string prompt = "";
+        
+        switch(missingSkill)
+        {
+            case "Spatial":
+                prompt = "플레이어가 방향을 자꾸 헷갈려서 맵 밖으로 떨어졌어. 좌/우회전 방향 감각을 연습할 수 있게 짧은 격려와 연습 맵 제안을 존댓말로 1~2줄로 해줘.";
+                break;
+            case "Function":
+                prompt = "플레이어가 코스트를 초과해서 실패했는데, 함수 기능을 전혀 사용하지 않고 있어. 반복되는 패턴을 찾아 함수로 묶어보자고 짧게 격려하며 연습 맵을 제안해줘. 존댓말 1~2줄.";
+                break;
+            case "If":
+                prompt = "플레이어가 조건문(if)을 사용하지 않고 실패하고 있어. 상황에 따라 다르게 행동하는 조건문의 필요성을 말하며 짧게 격려하고 연습 맵을 제안해줘. 존댓말 1~2줄.";
+                break;
+            case "While":
+                prompt = "플레이어가 반복문(while)을 사용하지 않아서 코스트를 낭비하고 있어. 반복문을 쓰면 편하다고 짧게 격려하며 연습 맵을 제안해줘. 존댓말 1~2줄.";
+                break;
+            case "ObstacleAvoidance":
+                prompt = "플레이어가 장애물을 피하지 못하고 있어. 장애물을 피하는 논리를 연습해보자고 짧게 격려하고 연습 맵을 제안해줘. 존댓말 1~2줄.";
+                break;
+            default:
+                prompt = "플레이어가 여러 번 실패해서 좌절하고 있어. 짧게 격려하고 기본기 연습 맵을 제안해줘. 존댓말 1~2줄.";
+                break;
+        }
+
+        StartCoroutine(SendRequest(prompt, missingSkill));
+    }
+
+    private IEnumerator SendRequest(string prompt, string missingSkill)
+    {
+        // UI 표시: AI가 생각 중...
+        if (AIPopupUI.Instance != null)
+        {
+            AIPopupUI.Instance.ShowLoading();
+        }
+
+        string jsonData = $@"{{
+            ""model"": ""{modelName}"",
+            ""messages"": [
+                {{
+                    ""role"": ""system"",
+                    ""content"": ""너는 어린이 코딩 교육 게임의 친절한 AI 어시스턴트야. 항상 존댓말을 쓰고, 최대한 짧고 다정하게 말해.""
+                }},
+                {{
+                    ""role"": ""user"",
+                    ""content"": ""{prompt}""
+                }}
+            ],
+            ""max_tokens"": 150,
+            ""temperature"": 0.7
+        }}";
+
+        UnityWebRequest request = new UnityWebRequest(apiUrl, "POST");
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        
+        request.SetRequestHeader("Content-Type", "application/json");
+        request.SetRequestHeader("Authorization", "Bearer " + apiKey);
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
+        {
+            Debug.LogError($"[NvidiaAIAssistant] Error: {request.error}\n{request.downloadHandler.text}");
+            if (AIPopupUI.Instance != null)
+            {
+                AIPopupUI.Instance.ShowMessage("앗, 통신에 문제가 생겼어요. 다시 시도해 볼까요?", missingSkill);
+            }
+        }
+        else
+        {
+            string jsonResponse = request.downloadHandler.text;
+            string message = ParseMessageFromJson(jsonResponse);
+
+            if (AIPopupUI.Instance != null)
+            {
+                AIPopupUI.Instance.ShowMessage(message, missingSkill);
+            }
+            else
+            {
+                Debug.Log($"[AI] {message}");
+                // 임시로 바로 생성 및 씬 이동
+                PracticeMapGenerator.Instance?.GenerateAndSavePracticeMap(missingSkill);
+            }
+        }
+    }
+
+    // 간단한 정규식으로 content 내용만 파싱 (Newtonsoft Json 없이)
+    private string ParseMessageFromJson(string json)
+    {
+        Match match = Regex.Match(json, @"""content"":\s*""(.*?)""");
+        if (match.Success)
+        {
+            // 이스케이프된 문자열 처리 (\n, \", 등)
+            string text = match.Groups[1].Value;
+            text = text.Replace("\\n", "\n").Replace("\\\"", "\"");
+            return text;
+        }
+        return "AI 응답을 해석할 수 없습니다.";
+    }
+}

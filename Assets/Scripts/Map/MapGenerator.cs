@@ -41,12 +41,10 @@ public class MapGenerator : MonoBehaviour
 
     public void LoadStage(int stageNumber)
     {
-        // 1. 기존 블록 초기화
-        for (int i = transform.childCount - 1; i >= 0; i--)
+        if (AIManager.Instance != null)
         {
-            Destroy(transform.GetChild(i).gameObject);
+            AIManager.Instance.ResetStageData();
         }
-        mapDataDict.Clear();
 
         string fileName = $"Stage{(stageNumber + 1):D2}_Map";
         TextAsset csvData = Resources.Load<TextAsset>("MapData/" + fileName);
@@ -57,7 +55,28 @@ public class MapGenerator : MonoBehaviour
             return;
         }
 
-        string[] rows = csvData.text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+        ParseCSVAndSpawn(csvData.text);
+    }
+
+    public void LoadStageFromString(string csvText)
+    {
+        if (AIManager.Instance != null)
+        {
+            AIManager.Instance.ResetStageData();
+        }
+        ParseCSVAndSpawn(csvText);
+    }
+
+    private void ParseCSVAndSpawn(string csvText)
+    {
+        // 1. 기존 블록 초기화
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Destroy(transform.GetChild(i).gameObject);
+        }
+        mapDataDict.Clear();
+
+        string[] rows = csvText.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
         
         // ★ 맵 범위 및 코스트 저장용
         int minX = int.MaxValue;
@@ -111,6 +130,16 @@ public class MapGenerator : MonoBehaviour
                 if (int.TryParse(columns[5].Trim(), out int parsedCost))
                 {
                     parsedMaxCost = parsedCost;
+                }
+            }
+
+            // 7번째 열(Tags) 파싱 (AI 어시스턴트용)
+            if (columns.Length > 6 && block.type == BlockType.Start)
+            {
+                string tags = columns[6].Trim();
+                if (AIManager.Instance != null)
+                {
+                    AIManager.Instance.SetStageTags(tags);
                 }
             }
 

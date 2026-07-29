@@ -421,6 +421,15 @@ public class PlayerController : MonoBehaviour
         yield return StartCoroutine(ExecuteBlockList(mainCommandList, commandSequencePanel));
 
         isExecuting = false;
+
+        // AI Assistant: Report attempt if finished without success
+        if (successPanel != null && !successPanel.activeSelf)
+        {
+            if (AIManager.Instance != null)
+            {
+                AIManager.Instance.ReportAttempt(mainCommandList);
+            }
+        }
     }
 
     IEnumerator ExecuteBlockList(List<CommandBlock> blockList, GameObject panel)
@@ -540,6 +549,10 @@ public class PlayerController : MonoBehaviour
     private void FailSequence()
     {
         SoundManager.Instance?.PlayFall();
+        if (AIManager.Instance != null)
+        {
+            AIManager.Instance.ReportOutOfBounds();
+        }
         ResetPlayerPosition();
     }
 

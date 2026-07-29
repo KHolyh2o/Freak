@@ -4,31 +4,33 @@ using TMPro;
 
 public class UI_Auto_Connector : MonoBehaviour
 {
-    [Header("UI ¿¬°á")]
+    [Header("UI ì—°ê²°")]
     public GameObject commandSequencePanel;
-    public GameObject loopSequencePanel;
+    public GameObject[] functionPanels; // F1, F2, F3 íŒ¨ë„
     public GameObject commandSlotPrefab;
     public GameObject successPanel;
     public GameObject loopConfigPopup;
     public TextMeshProUGUI limitText;
 
-    // °ÔÀÓ Áß UI ¹­À½
+    // ê²Œì„ ì¤‘ UI ë¬¶ìŒ
     public GameObject inGameUIGroup;
 
-    [Header("ÆÛÁî ¸Ş´º UI")]
+    [Header("í¼ì¦ˆ ë©”ë‰´ UI")]
     public GameObject pausePanel;
     public Button settingsButton;
     public Button resumeButton;
     public Button stageSelectButton;
 
-    [Header("¹öÆ° ¿¬°á")]
+    [Header("ë²„íŠ¼ ì—°ê²°")]
     public Button forwardButton;
     public Button rightButton;
     public Button leftButton;
     public Button executeButton;
     public Button resetButton;
     public Button cameraButton;
-    public Button loopButton;
+    public Button[] functionButtons; // 1, 2, 3 í•¨ìˆ˜ ë²„íŠ¼
+    public Button ifButton;
+    public Button whileButton;
 
     void Start()
     {
@@ -38,21 +40,21 @@ public class UI_Auto_Connector : MonoBehaviour
         var sceneController = FindObjectOfType<SceneController>();
         var sm = SoundManager.Instance;
 
-        // --- 1. ÇÃ·¹ÀÌ¾î ¿¬°á ---
-        // (Áßº¹ ÄÚµå¸¦ ¾ø¾Ö°í BindPlayer ÇÔ¼ö¸¦ È£ÃâÇÕ´Ï´Ù)
+        // --- 1. í”Œë ˆì´ì–´ ì—°ê²° ---
+        // (ì¤‘ë³µ ì½”ë“œë¥¼ ì—†ì• ê³  BindPlayer í•¨ìˆ˜ë¥¼ í˜¸ì¶œí•©ë‹ˆë‹¤)
         if (player != null)
         {
             BindPlayer(player);
         }
 
-        // --- 2. Ä«¸Ş¶ó ¿¬°á ---
+        // --- 2. ì¹´ë©”ë¼ ì—°ê²° ---
         if (camSwitcher != null && cameraButton != null)
         {
             cameraButton.onClick.RemoveAllListeners();
             cameraButton.onClick.AddListener(() => { camSwitcher.SwitchCamera(); sm?.PlayCameraClick(); });
         }
 
-        // --- 3. ÆÛÁî ½Ã½ºÅÛ ¿¬°á ---
+        // --- 3. í¼ì¦ˆ ì‹œìŠ¤í…œ ì—°ê²° ---
         if (gameManager != null)
         {
             gameManager.SetPausePanel(pausePanel);
@@ -74,7 +76,7 @@ public class UI_Auto_Connector : MonoBehaviour
                 stageSelectButton.onClick.RemoveAllListeners();
                 stageSelectButton.onClick.AddListener(() =>
                 {
-                    Time.timeScale = 1f; // ½Ã°£ Á¤»óÈ­
+                    Time.timeScale = 1f; // ì‹œê°„ ì •ìƒí™”
                     sceneController.ChangeScene("Main");
                     sm?.PlayCommandClick();
                 });
@@ -82,28 +84,28 @@ public class UI_Auto_Connector : MonoBehaviour
         }
     }
 
-    // ¿ÜºÎ(MapEditor) ¶Ç´Â Start¿¡¼­ È£ÃâÇÏ¿© ÇÃ·¹ÀÌ¾î¿Í UI¸¦ ¿¬°áÇÏ´Â ÇÔ¼ö
+    // ì™¸ë¶€(MapEditor) ë˜ëŠ” Startì—ì„œ í˜¸ì¶œí•˜ì—¬ í”Œë ˆì´ì–´ì™€ UIë¥¼ ì—°ê²°í•˜ëŠ” í•¨ìˆ˜
     public void BindPlayer(PlayerController player)
     {
         if (player == null) return;
 
         var sm = SoundManager.Instance;
         var gameManager = FindObjectOfType<GameManager>();
-        var camSwitcher = FindObjectOfType<CameraSwitcher>(); // (¡Ú Ãß°¡: Ä«¸Ş¶ó ¸Å´ÏÀú Ã£±â)
+        var camSwitcher = FindObjectOfType<CameraSwitcher>(); // (â˜… ì¶”ê°€: ì¹´ë©”ë¼ ë§¤ë‹ˆì € ì°¾ê¸°)
 
-        // 1. ÇÃ·¹ÀÌ¾î¿¡°Ô StartBox À§Ä¡ °­Á¦ ÁÖÀÔ (°¡Àå Áß¿ä!)
-        // (ÇÃ·¹ÀÌ¾î°¡ ½º½º·Î ¸ø Ã£À» °æ¿ì¸¦ ´ëºñÇØ, ¿©±â¼­ È®½ÇÇÏ°Ô ´Ù½Ã Ã£¾Æ¼­ ³Ö¾îÁÜ)
+        // 1. í”Œë ˆì´ì–´ì—ê²Œ StartBox ìœ„ì¹˜ ê°•ì œ ì£¼ì… (ê°€ì¥ ì¤‘ìš”!)
+        // (í”Œë ˆì´ì–´ê°€ ìŠ¤ìŠ¤ë¡œ ëª» ì°¾ì„ ê²½ìš°ë¥¼ ëŒ€ë¹„í•´, ì—¬ê¸°ì„œ í™•ì‹¤í•˜ê²Œ ë‹¤ì‹œ ì°¾ì•„ì„œ ë„£ì–´ì¤Œ)
         if (player.startBox == null)
         {
             GameObject foundStart = GameObject.FindGameObjectWithTag("StartBox");
             if (foundStart != null) player.startBox = foundStart;
         }
 
-        // 2. UI ÃÊ±âÈ­ ¹× Àü´Ş
-        // (ÀÌ ÇÔ¼ö ¾È¿¡¼­ ResetPlayer°¡ È£ÃâµÇ¸é¼­ À§Ä¡°¡ ÀâÈû)
+        // 2. UI ì´ˆê¸°í™” ë° ì „ë‹¬
+        // (ì´ í•¨ìˆ˜ ì•ˆì—ì„œ ResetPlayerê°€ í˜¸ì¶œë˜ë©´ì„œ ìœ„ì¹˜ê°€ ì¡í˜)
         player.InitializeUI(
             commandSequencePanel,
-            loopSequencePanel,
+            functionPanels,
             commandSlotPrefab,
             successPanel,
             loopConfigPopup,
@@ -111,21 +113,21 @@ public class UI_Auto_Connector : MonoBehaviour
             inGameUIGroup
         );
 
-        // 3. (¡Ú ÇÙ½É) 3ÀÎÄª Ä«¸Ş¶ó¿¡°Ô "ÀÌ ÇÃ·¹ÀÌ¾î¸¦ µû¶ó°¡!"¶ó°í ¾Ë·ÁÁÖ±â
+        // 3. (â˜… í•µì‹¬) 3ì¸ì¹­ ì¹´ë©”ë¼ì—ê²Œ "ì´ í”Œë ˆì´ì–´ë¥¼ ë”°ë¼ê°€!"ë¼ê³  ì•Œë ¤ì£¼ê¸°
         if (camSwitcher != null && camSwitcher.cameras.Length > 2)
         {
-            // 3ÀÎÄª Ä«¸Ş¶ó(Element 2)¸¦ Ã£¾Æ¼­
+            // 3ì¸ì¹­ ì¹´ë©”ë¼(Element 2)ë¥¼ ì°¾ì•„ì„œ
             Camera thirdCam = camSwitcher.cameras[2];
-            // ±× ºÎ¸ğ³ª º»ÀÎ¿¡°Ô ºÙÀº 'ThirdPersonFollow' ½ºÅ©¸³Æ®¸¦ Ã£À½
+            // ê·¸ ë¶€ëª¨ë‚˜ ë³¸ì¸ì—ê²Œ ë¶™ì€ 'ThirdPersonFollow' ìŠ¤í¬ë¦½íŠ¸ë¥¼ ì°¾ìŒ
             ThirdPersonFollow follower = thirdCam.GetComponentInParent<ThirdPersonFollow>();
 
             if (follower != null)
             {
-                follower.target = player.transform; // Å¸°ÙÀ» »õ ÇÃ·¹ÀÌ¾î·Î ±³Ã¼!
+                follower.target = player.transform; // íƒ€ê²Ÿì„ ìƒˆ í”Œë ˆì´ì–´ë¡œ êµì²´!
             }
         }
 
-        // 4. ¹öÆ° ¸®½º³Ê ¿¬°á (±âÁ¸ ÄÚµå À¯Áö)
+        // 4. ë²„íŠ¼ ë¦¬ìŠ¤ë„ˆ ì—°ê²° (ê¸°ì¡´ ì½”ë“œ ìœ ì§€)
         forwardButton.onClick.RemoveAllListeners();
         forwardButton.onClick.AddListener(() => { player.AddCommand_Forward(); });
 
@@ -134,6 +136,18 @@ public class UI_Auto_Connector : MonoBehaviour
 
         leftButton.onClick.RemoveAllListeners();
         leftButton.onClick.AddListener(() => { player.AddCommand_TurnLeft(); });
+
+        if (ifButton != null)
+        {
+            ifButton.onClick.RemoveAllListeners();
+            ifButton.onClick.AddListener(() => { player.AddCommand_If_Tree(); });
+        }
+
+        if (whileButton != null)
+        {
+            whileButton.onClick.RemoveAllListeners();
+            whileButton.onClick.AddListener(() => { player.AddCommand_While_Tree(); });
+        }
 
         executeButton.onClick.RemoveAllListeners();
         executeButton.onClick.AddListener(() => { player.ExecuteCommands(); sm?.PlayExecuteClick(); });
@@ -151,16 +165,75 @@ public class UI_Auto_Connector : MonoBehaviour
             }
         }
 
-        if (loopButton != null)
+        // --- íŒ¨ë„ ë°°ê²½ í´ë¦­ ì‹œ í™œì„± ì°½ ë³€ê²½ ì´ë²¤íŠ¸ ë°”ì¸ë”© ---
+        if (commandSequencePanel != null)
         {
-            var handler = loopButton.GetComponent<MouseButtonHandler>();
-            if (handler == null) handler = loopButton.gameObject.AddComponent<MouseButtonHandler>();
+            Button mainPanelBtn = commandSequencePanel.GetComponent<Button>();
+            if (mainPanelBtn != null)
+            {
+                mainPanelBtn.onClick.RemoveAllListeners();
+                mainPanelBtn.onClick.AddListener(() => player.SetActivePanel(-1));
+            }
+        }
 
-            handler.onLeftClick.RemoveAllListeners();
-            handler.onLeftClick.AddListener(player.AddCommand_Loop_ToMain);
+        if (functionPanels != null)
+        {
+            for (int i = 0; i < functionPanels.Length; i++)
+            {
+                if (functionPanels[i] != null)
+                {
+                    int capturedIndex = i;
+                    Button panelBtn = functionPanels[i].GetComponent<Button>();
+                    if (panelBtn == null) panelBtn = functionPanels[i].gameObject.AddComponent<Button>();
 
-            handler.onRightClick.RemoveAllListeners();
-            handler.onRightClick.AddListener(player.OpenLoopConfigPopup);
+                    if (panelBtn != null)
+                    {
+                        panelBtn.onClick.RemoveAllListeners();
+                        panelBtn.onClick.AddListener(() => player.SetActivePanel(capturedIndex));
+                    }
+                }
+            }
+        }
+
+        // --- í•¨ìˆ˜ ë²„íŠ¼ 1, 2, 3 ë°”ì¸ë”© ---
+        if (functionButtons != null)
+        {
+            for (int i = 0; i < functionButtons.Length; i++)
+            {
+                if (functionButtons[i] != null)
+                {
+                    int capturedIndex = i;
+                    var handler = functionButtons[i].GetComponent<MouseButtonHandler>();
+                    if (handler == null) handler = functionButtons[i].gameObject.AddComponent<MouseButtonHandler>();
+
+                    handler.onLeftClick.RemoveAllListeners();
+                    handler.onLeftClick.AddListener(() => 
+                    {
+                        Debug.Log($"[UI] í•¨ìˆ˜ ë²„íŠ¼ {capturedIndex} ì¢Œí´ë¦­ ë¨! (ì»¤ë§¨ë“œ ì¶”ê°€ ì‹œë„)");
+                        player.AddCommand_CallFunction(capturedIndex);
+                    });
+
+                    handler.onRightClick.RemoveAllListeners();
+                    handler.onRightClick.AddListener(() => 
+                    {
+                        Debug.Log($"[UI] í•¨ìˆ˜ ë²„íŠ¼ {capturedIndex} ìš°í´ë¦­ ë¨! íŒ¨ë„ í™œì„±í™” ìƒíƒœ í† ê¸€ ì‹œë„");
+                        if (functionPanels != null && capturedIndex < functionPanels.Length && functionPanels[capturedIndex] != null)
+                        {
+                            bool isActive = functionPanels[capturedIndex].activeSelf;
+                            functionPanels[capturedIndex].SetActive(!isActive);
+                            Debug.Log($"[UI] íŒ¨ë„ {capturedIndex} ìƒíƒœ ë³€ê²½: {!isActive}");
+                            
+                            // íŒ¨ë„ì´ ì¼œì§€ë©´ ìë™ìœ¼ë¡œ ê·¸ íŒ¨ë„ì„ í™œì„±í™”
+                            if (!isActive) player.SetActivePanel(capturedIndex);
+                            else player.SetActivePanel(-1); // êº¼ì§€ë©´ ë©”ì¸ìœ¼ë¡œ
+                        }
+                        else
+                        {
+                            Debug.LogError($"[UI] ì—ëŸ¬: í•¨ìˆ˜ íŒ¨ë„ {capturedIndex}ë²ˆì´ Inspectorì— í• ë‹¹ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤!");
+                        }
+                    });
+                }
+            }
         }
     }
 }

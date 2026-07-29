@@ -1,23 +1,22 @@
 using UnityEngine;
-using UnityEngine.EventSystems; // ÀÌ°Ô ²À ÀÖ¾î¾ß Å¬¸¯À» °¨ÁöÇÕ´Ï´Ù.
-using UnityEngine.Events;       // ÀÌ°Ô ²À ÀÖ¾î¾ß UnityEvent¸¦ ¾¹´Ï´Ù.
+using UnityEngine.EventSystems;
+using UnityEngine.Events;
 
-public class MouseButtonHandler : MonoBehaviour, IPointerClickHandler
+public class MouseButtonHandler : MonoBehaviour, IPointerDownHandler
 {
-    // ¡Ú ÀÌ µÎ ÁÙÀÌ ¾ø¾î¼­ ¿À·ù°¡ ³­ °ÍÀÔ´Ï´Ù!
-    public UnityEvent onLeftClick;
-    public UnityEvent onRightClick;
+    public UnityEvent onLeftClick = new UnityEvent();
+    public UnityEvent onRightClick = new UnityEvent();
 
-    public void OnPointerClick(PointerEventData eventData)
+    public void OnPointerDown(PointerEventData eventData)
     {
+        Debug.Log($"[MouseButtonHandler] ë§ˆìš°ìŠ¤ ëˆŒë¦¼ ê°ì§€! ë²„íŠ¼ ì¢…ë¥˜: {eventData.button}, ëŒ€ìƒ: {gameObject.name}");
+
         if (eventData.button == PointerEventData.InputButton.Left)
         {
-            // ÁÂÅ¬¸¯ ÀÌº¥Æ® ½ÇÇà
             if (onLeftClick != null) onLeftClick.Invoke();
         }
         else if (eventData.button == PointerEventData.InputButton.Right)
         {
-            // ¿ìÅ¬¸¯ ÀÌº¥Æ® ½ÇÇà
             if (onRightClick != null) onRightClick.Invoke();
         }
     }

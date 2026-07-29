@@ -19,6 +19,7 @@ public class CameraSwitcher : MonoBehaviour
     private float _isometricDistance = 20f;
     private Vector3 _isometricPivotPosition = Vector3.zero;
     private Vector3 _previousMousePos;
+    private bool _isDraggingCamera = false;
 
     // 실제 게임 화면을 비추는 단 하나의 메인 카메라
     private Camera _mainCam;
@@ -224,9 +225,47 @@ public class CameraSwitcher : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(dragMouseButton))
         {
-            _previousMousePos = Input.mousePosition;
+            bool isOverScrollView = false;
+            
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+            {
+                var pointerData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+                {
+                    position = Input.mousePosition
+                };
+                var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+                UnityEngine.EventSystems.EventSystem.current.RaycastAll(pointerData, results);
+
+                foreach (var hit in results)
+                {
+                    // 클릭한 UI가 ScrollRect(스크롤 뷰) 내부의 요소인지 확인
+                    var scrollRect = hit.gameObject.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+                    if (scrollRect != null)
+                    {
+                        // 3개가 켜져서 '실제로 스크롤이 가능해진 상황'인지 확인 (Content 높이 > Viewport 높이)
+                        if (scrollRect.content != null && scrollRect.viewport != null)
+                        {
+                            if (scrollRect.content.rect.height > scrollRect.viewport.rect.height)
+                            {
+                                isOverScrollView = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (isOverScrollView)
+            {
+                _isDraggingCamera = false;
+            }
+            else
+            {
+                _isDraggingCamera = true;
+                _previousMousePos = Input.mousePosition;
+            }
         }
-        else if (Input.GetMouseButton(dragMouseButton))
+        else if (Input.GetMouseButton(dragMouseButton) && _isDraggingCamera)
         {
             Vector3 mouseDelta = Input.mousePosition - _previousMousePos;
             

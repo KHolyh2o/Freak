@@ -6,18 +6,33 @@ using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
-    public enum CommandType { Forward, TurnRight, TurnLeft, Loop }
+    public enum CommandType { Forward, TurnRight, TurnLeft, CallFunction, If, While }
+    public enum ObstacleType { None, Tree, Box, Rock, Cliff }
+
+    [System.Serializable]
+    public class CommandBlock
+    {
+        public CommandType type;
+        public int functionIndex; 
+        public ObstacleType conditionObstacle;
+        public bool conditionExpectedState = true; 
+        public int innerCommandCount = 0; 
+
+        public CommandBlock(CommandType t) { type = t; }
+    }
 
     [Header("UI 하이라이트 설정")]
     public float highlightScale = 1.2f;
 
     // --- 리스트 관리 ---
-    private List<CommandType> mainCommandList = new List<CommandType>();
-    private List<CommandType> loopCommandConfig = new List<CommandType>();
+    private List<CommandBlock> mainCommandList = new List<CommandBlock>();
+    
+    public int maxFunctionCount = 3;
+    private List<List<CommandBlock>> functionLists = new List<List<CommandBlock>>();
 
     // --- UI 참조 ---
     private GameObject commandSequencePanel;
-    private GameObject loopSequencePanel;
+    private GameObject[] functionPanels;
     private GameObject commandSlotPrefab;
     private GameObject successPanel;
     private GameObject loopConfigPopup;
@@ -30,7 +45,19 @@ public class PlayerController : MonoBehaviour
     public Sprite rightIcon;
     public Sprite leftIcon;
     public Sprite loopIcon;
+    public Sprite ifIcon;
+    public Sprite whileIcon;
     public Sprite emptySlotSprite;
+
+    [Header("조건 토글 아이콘 (장애물)")]
+    public Sprite obsTreeIcon;
+    public Sprite obsBoxIcon;
+    public Sprite obsRockIcon;
+    public Sprite obsCliffIcon;
+
+    [Header("조건 토글 아이콘 (O/X 상태)")]
+    public Sprite stateTrueIcon;
+    public Sprite stateFalseIcon;
 
     // --- 오브젝트 참조 ---
     [Header("오브젝트 연결")]
@@ -41,6 +68,16 @@ public class PlayerController : MonoBehaviour
     private Vector3 startPosition;
     private Quaternion startRotation;
     private bool isExecuting = false;
+
+    // --- Scope 수정 상태 ---
+    private bool isEditingScope = false;
+    private int editingScopeStartIndex = -1;
+    private List<CommandBlock> editingScopeList = null;
+    private GameObject editingScopePanel = null;
+
+    // --- 편집 및 다중 창 상태 ---
+    public int activeListIndex = -1; // -1: 메인, 0: F1, 1: F2, 2: F3
+    public int insertIndex = -1;
 
     // --- 이동 설정 ---
     [Header("이동 설정")]
@@ -73,6 +110,11 @@ public class PlayerController : MonoBehaviour
         {
             this.enabled = false;
             return;
+        }
+
+        for (int i = 0; i < maxFunctionCount; i++)
+        {
+            functionLists.Add(new List<CommandBlock>());
         }
 
         // UI 등 초기화에 필요한 값만 미리 계산
@@ -165,10 +207,10 @@ public class PlayerController : MonoBehaviour
 #endif
     }
 
-    public void InitializeUI(GameObject mainPanel, GameObject loopPanel, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt, GameObject inGameUI)
+    public void InitializeUI(GameObject mainPanel, GameObject[] functionPnls, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt, GameObject inGameUI)
     {
         this.commandSequencePanel = mainPanel;
-        this.loopSequencePanel = loopPanel;
+        this.functionPanels = functionPnls;
         this.commandSlotPrefab = slotPrefab;
         this.successPanel = successPnl;
         this.loopConfigPopup = loopPopup;
@@ -186,70 +228,80 @@ public class PlayerController : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // 버튼 기능
+    // 버튼 기능 (커맨드 추가)
     // ---------------------------------------------------------
-    public void AddCommand_Forward() => TryAddCommand(CommandType.Forward);
-    public void AddCommand_TurnRight() => TryAddCommand(CommandType.TurnRight);
-    public void AddCommand_TurnLeft() => TryAddCommand(CommandType.TurnLeft);
+    public void AddCommand_Forward() => TryAddCommand(new CommandBlock(CommandType.Forward));
+    public void AddCommand_TurnRight() => TryAddCommand(new CommandBlock(CommandType.TurnRight));
+    public void AddCommand_TurnLeft() => TryAddCommand(new CommandBlock(CommandType.TurnLeft));
 
-    public void AddCommand_Loop_ToMain()
+    public void AddCommand_If_Tree() => TryAddCommand(new CommandBlock(CommandType.If) { conditionObstacle = ObstacleType.Tree });
+    public void AddCommand_While_Tree() => TryAddCommand(new CommandBlock(CommandType.While) { conditionObstacle = ObstacleType.Tree });
+
+    public void AddCommand_CallFunction(int funcIndex)
     {
         if (isExecuting) return;
-        AddToMainList(CommandType.Loop);
+        CommandBlock callFunc = new CommandBlock(CommandType.CallFunction);
+        callFunc.functionIndex = funcIndex;
+        TryAddCommand(callFunc);
     }
 
-    private void TryAddCommand(CommandType type)
+    private void TryAddCommand(CommandBlock block)
     {
         if (isExecuting) return;
-        if (IsLoopPopupActive()) AddToLoopConfig(type);
-        else AddToMainList(type);
-    }
 
-    private void AddToMainList(CommandType type)
-    {
-        int cost = (type == CommandType.Loop) ? 2 : 1;
-        if (GetCurrentCost() + cost > maxCommandCost)
+        List<CommandBlock> targetList = GetActiveList();
+        
+        // 모든 패널에 대해 통합된 코스트 제한 검사
+        if (GetCurrentCost() + 1 > maxCommandCost)
         {
             SoundManager.Instance?.PlayBump();
             return;
         }
-        mainCommandList.Add(type);
-        UpdateIcons(commandSequencePanel, mainCommandList);
-        UpdateLimitText();
-        SoundManager.Instance?.PlayCommandClick();
-    }
 
-    private void AddToLoopConfig(CommandType type)
-    {
-        if (loopCommandConfig.Count >= maxLoopConfigLimit)
+        if (insertIndex >= 0 && insertIndex <= targetList.Count)
         {
-            SoundManager.Instance?.PlayBump();
-            return;
+            targetList.Insert(insertIndex, block);
+            insertIndex++; // 연속 삽입을 위해 인덱스 1 증가
         }
-        loopCommandConfig.Add(type);
-        UpdateIcons(loopSequencePanel, loopCommandConfig);
+        else
+        {
+            targetList.Add(block);
+            insertIndex = -1;
+        }
+
         SoundManager.Instance?.PlayCommandClick();
+        RefreshAllPanels();
     }
 
-    private bool IsLoopPopupActive() => loopConfigPopup != null && loopConfigPopup.activeSelf;
+    public List<CommandBlock> GetActiveList()
+    {
+        if (activeListIndex >= 0 && activeListIndex < functionLists.Count)
+            return functionLists[activeListIndex];
+        return mainCommandList;
+    }
+
+    public void SetActivePanel(int panelIndex)
+    {
+        activeListIndex = panelIndex;
+        insertIndex = -1; // 패널이 바뀌면 삽입 지점 초기화
+        RefreshAllPanels();
+    }
 
     // ---------------------------------------------------------
     // 팝업창 관리
     // ---------------------------------------------------------
-    public void OpenLoopConfigPopup()
-    {
-        if (isExecuting || loopConfigPopup == null) return;
-        loopConfigPopup.SetActive(true);
-        UpdateIcons(loopSequencePanel, loopCommandConfig);
-    }
-
-    public void CloseLoopConfigPopup() => loopConfigPopup?.SetActive(false);
+    // ---------------------------------------------------------
+    // 팝업창 관리 (레거시 코드, 더 이상 사용되지 않음)
+    // ---------------------------------------------------------
+    public void OpenLoopConfigPopup() { }
+    public void CloseLoopConfigPopup() { }
 
     public void ClearLoopConfig()
     {
         if (isExecuting) return;
-        loopCommandConfig.Clear();
-        UpdateIcons(loopSequencePanel, loopCommandConfig);
+        List<CommandBlock> targetList = GetActiveList();
+        targetList.Clear();
+        RefreshAllPanels();
         SoundManager.Instance?.PlayResetClick();
     }
 
@@ -274,28 +326,60 @@ public class PlayerController : MonoBehaviour
     {
         ResetPlayerPosition(); // 여기서 위치를 잡음
         mainCommandList.Clear();
+        foreach (var list in functionLists) list.Clear();
 
         if (commandSequencePanel != null && commandSlotPrefab != null)
         {
-            foreach (Transform child in commandSequencePanel.transform) Destroy(child.gameObject);
+            PopulateSlots(commandSequencePanel, maxCommandCost);
+        }
 
-            for (int i = 0; i < maxCommandCost; i++)
+        if (functionPanels != null && commandSlotPrefab != null)
+        {
+            foreach (GameObject fPanel in functionPanels)
             {
-                GameObject slot = Instantiate(commandSlotPrefab, commandSequencePanel.transform);
-                Image img = slot.GetComponent<Image>();
-                if (img != null && emptySlotSprite != null)
-                {
-                    img.sprite = emptySlotSprite;
-                    img.color = Color.white;
-                }
-
-                RectTransform rect = slot.GetComponent<RectTransform>();
-                if (rect != null) rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                if (fPanel != null) PopulateSlots(fPanel, maxCommandCost);
             }
         }
 
-        UpdateIcons(loopSequencePanel, loopCommandConfig);
+        RefreshAllPanels();
         UpdateLimitText();
+    }
+
+    private Transform GetPanelContent(GameObject panel)
+    {
+        if (panel == commandSequencePanel) return panel.transform;
+
+        Transform viewport = panel.transform.Find("Viewport");
+        if (viewport != null)
+        {
+            Transform content = viewport.Find("Content");
+            if (content != null) return content;
+        }
+        return panel.transform;
+    }
+
+    private void PopulateSlots(GameObject panel, int maxCount)
+    {
+        Transform targetContent = GetPanelContent(panel);
+
+        foreach (Transform child in targetContent) Destroy(child.gameObject);
+
+        for (int i = 0; i < maxCount; i++)
+        {
+            GameObject slot = Instantiate(commandSlotPrefab, targetContent);
+            Image img = slot.GetComponent<Image>();
+            if (img != null && emptySlotSprite != null)
+            {
+                img.sprite = emptySlotSprite;
+                img.color = Color.white;
+            }
+
+            RectTransform rect = slot.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+            }
+        }
     }
 
     // ★★★ 여기가 수정된 핵심 함수입니다! ★★★
@@ -334,34 +418,105 @@ public class PlayerController : MonoBehaviour
         isExecuting = true;
         if (!IsGrounded()) { FailSequence(); yield break; }
 
-        int index = 0;
-        foreach (CommandType cmd in mainCommandList)
-        {
-            HighlightIcon(commandSequencePanel, index, true);
+        yield return StartCoroutine(ExecuteBlockList(mainCommandList, commandSequencePanel));
 
-            if (cmd == CommandType.Loop)
-            {
-                for (int i = 0; i < loopRepeatCount; i++)
-                {
-                    foreach (CommandType subCmd in loopCommandConfig)
-                    {
-                        yield return StartCoroutine(ProcessMove(subCmd));
-                        yield return new WaitForSeconds(0.1f);
-                        if (!CheckGameState()) yield break;
-                    }
-                }
-            }
-            else
-            {
-                yield return StartCoroutine(ProcessMove(cmd));
-                yield return new WaitForSeconds(0.1f);
-                if (!CheckGameState()) yield break;
-            }
-
-            HighlightIcon(commandSequencePanel, index, false);
-            index++;
-        }
         isExecuting = false;
+    }
+
+    IEnumerator ExecuteBlockList(List<CommandBlock> blockList, GameObject panel)
+    {
+        for (int i = 0; i < blockList.Count; i++)
+        {
+            if (!isExecuting) yield break;
+
+            CommandBlock block = blockList[i];
+            
+            if (panel != null) HighlightIcon(panel, i, true);
+
+            switch (block.type)
+            {
+                case CommandType.Forward:
+                case CommandType.TurnRight:
+                case CommandType.TurnLeft:
+                    yield return StartCoroutine(ProcessMove(block.type));
+                    yield return new WaitForSeconds(0.1f);
+                    break;
+                
+                case CommandType.CallFunction:
+                    if (block.functionIndex >= 0 && block.functionIndex < functionLists.Count)
+                    {
+                        GameObject funcPanel = (functionPanels != null && block.functionIndex < functionPanels.Length) ? functionPanels[block.functionIndex] : null;
+                        yield return StartCoroutine(ExecuteBlockList(functionLists[block.functionIndex], funcPanel));
+                    }
+                    break;
+                
+                case CommandType.If:
+                    int ifStart = i + 1;
+                    int ifLen = block.innerCommandCount;
+                    if (ifStart < blockList.Count) 
+                    {
+                        ifLen = Mathf.Min(ifLen, blockList.Count - ifStart);
+                        if (CheckFrontObstacle(block.conditionObstacle) == block.conditionExpectedState)
+                        {
+                            List<CommandBlock> subList = blockList.GetRange(ifStart, ifLen);
+                            yield return StartCoroutine(ExecuteBlockList(subList, null));
+                        }
+                    }
+                    i += ifLen; // 부모 루프 건너뜀
+                    break;
+
+                case CommandType.While:
+                    int wStart = i + 1;
+                    int wLen = block.innerCommandCount;
+                    if (wStart < blockList.Count)
+                    {
+                        wLen = Mathf.Min(wLen, blockList.Count - wStart);
+                        int safeBreak = 0;
+                        List<CommandBlock> subList = blockList.GetRange(wStart, wLen);
+                        
+                        while (CheckFrontObstacle(block.conditionObstacle) == block.conditionExpectedState)
+                        {
+                            yield return StartCoroutine(ExecuteBlockList(subList, null));
+                            safeBreak++;
+                            if (safeBreak > 100) { Debug.LogWarning("무한루프 방지"); break; }
+                            if (!isExecuting) yield break;
+                        }
+                    }
+                    i += wLen; // 부모 루프 건너뜀
+                    break;
+            }
+
+            if (!CheckGameState()) yield break;
+            if (panel != null) HighlightIcon(panel, i, false);
+        }
+    }
+
+    private bool CheckFrontObstacle(ObstacleType obsType)
+    {
+        if (obsType == ObstacleType.None) return true;
+
+        // 낭떠러지(Cliff) 검사: 앞 칸 바닥에 길이 없으면 낭떠러지로 판단
+        if (obsType == ObstacleType.Cliff)
+        {
+            Vector3 nextPos = transform.position + transform.forward * moveStep;
+            bool hasGround = Physics.Raycast(nextPos, Vector3.down, groundCheckDistance, roadLayer);
+            return !hasGround; // 바닥이 없으면(false) 낭떠러지가 맞음(true)
+        }
+
+        // 일반 장애물 검사: 정면 레이캐스트
+        RaycastHit hit;
+        bool hasObstacle = Physics.Raycast(transform.position, transform.forward, out hit, moveStep);
+        
+        // 기존의 obstacleTag("Obstacle")를 그대로 유지하면서 이름으로 종류를 판별합니다.
+        if (hasObstacle && hit.collider.CompareTag(obstacleTag))
+        {
+            string objName = hit.collider.gameObject.name.ToLower(); // 소문자로 변환하여 검사
+            
+            if (obsType == ObstacleType.Tree && objName.Contains("tree")) return true;
+            if (obsType == ObstacleType.Box && objName.Contains("box")) return true;
+            if (obsType == ObstacleType.Rock && objName.Contains("rock")) return true;
+        }
+        return false;
     }
 
     IEnumerator ProcessMove(CommandType cmd)
@@ -457,75 +612,302 @@ public class PlayerController : MonoBehaviour
     // ---------------------------------------------------------
     // UI 업데이트
     // ---------------------------------------------------------
-    private void UpdateIcons(GameObject panel, List<CommandType> list)
+    public void RefreshAllPanels()
     {
-        if (panel == null || commandSlotPrefab == null) return;
-
-        if (panel == commandSequencePanel) // 메인 패널
+        UpdateIcons(commandSequencePanel, mainCommandList);
+        if (functionPanels != null)
         {
-            int cmdIndex = 0;
-            for (int i = 0; i < panel.transform.childCount; i++)
+            for (int i = 0; i < functionPanels.Length; i++)
             {
-                Transform child = panel.transform.GetChild(i);
-                Image img = child.GetComponent<Image>();
-                RectTransform rect = child.GetComponent<RectTransform>();
-
-                if (img == null || rect == null) continue;
-
-                if (cmdIndex < list.Count)
+                if (functionPanels[i] != null && i < functionLists.Count)
                 {
-                    CommandType cmd = list[cmdIndex];
-                    switch (cmd)
-                    {
-                        case CommandType.Forward:
-                            img.sprite = forwardIcon;
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
-                            break;
-                        case CommandType.TurnRight:
-                            img.sprite = rightIcon;
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
-                            break;
-                        case CommandType.TurnLeft:
-                            img.sprite = leftIcon;
-                            rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
-                            break;
-                        case CommandType.Loop:
-                            img.sprite = loopIcon;
-                            rect.sizeDelta = new Vector2(defaultSlotWidth * 2f, rect.sizeDelta.y);
-                            break;
-                    }
-                    img.color = Color.white;
-                    cmdIndex++;
-                }
-                else
-                {
-                    img.sprite = emptySlotSprite;
-                    rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
-                    img.color = Color.white;
+                    UpdateIcons(functionPanels[i], functionLists[i]);
                 }
             }
         }
-        else // 팝업 패널
+        UpdateLimitText();
+    }
+
+    private void UpdateIcons(GameObject panel, List<CommandBlock> list)
+    {
+        if (panel == null || commandSlotPrefab == null) return;
+
+        Transform targetContent = GetPanelContent(panel);
+        int cmdIndex = 0;
+        for (int i = 0; i < targetContent.childCount; i++)
         {
-            foreach (Transform child in panel.transform) Destroy(child.gameObject);
-            foreach (CommandType cmd in list)
+            Transform child = targetContent.GetChild(i);
+            Image img = child.GetComponent<Image>();
+            RectTransform rect = child.GetComponent<RectTransform>();
+
+            if (img == null || rect == null) continue;
+
+            if (cmdIndex < list.Count)
             {
-                GameObject slot = Instantiate(commandSlotPrefab, panel.transform);
-                Image img = slot.GetComponent<Image>();
-                RectTransform rect = slot.GetComponent<RectTransform>();
-                if (img != null)
+                CommandBlock block = list[cmdIndex];
+                switch (block.type)
                 {
-                    switch (cmd)
+                    case CommandType.Forward: img.sprite = forwardIcon; break;
+                    case CommandType.TurnRight: img.sprite = rightIcon; break;
+                    case CommandType.TurnLeft: img.sprite = leftIcon; break;
+                    case CommandType.CallFunction: img.sprite = loopIcon; break;
+                    case CommandType.If: img.sprite = ifIcon; break;
+                    case CommandType.While: img.sprite = whileIcon; break;
+                }
+                rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                
+                BindSlotEvents(child, list, cmdIndex, panel);
+                UpdateSlotVisuals(child, img, list, cmdIndex, panel);
+
+                cmdIndex++;
+            }
+            else
+            {
+                img.sprite = emptySlotSprite;
+                rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
+                img.color = Color.white;
+                ClearSlotEvents(child, panel);
+            }
+        }
+    }
+
+    private void BindSlotEvents(Transform child, List<CommandBlock> list, int index, GameObject panel)
+    {
+        MouseButtonHandler handler = child.GetComponent<MouseButtonHandler>();
+        if (handler == null) handler = child.gameObject.AddComponent<MouseButtonHandler>();
+
+        handler.onLeftClick.RemoveAllListeners();
+        handler.onRightClick.RemoveAllListeners();
+
+        int capturedIndex = index;
+        handler.onLeftClick.AddListener(() => OnSlotClicked(list, capturedIndex, panel));
+        handler.onRightClick.AddListener(() => OnSlotRightClicked(list, capturedIndex, panel));
+
+        Transform scopeBtnTr = child.Find("Scope_correction");
+        if (scopeBtnTr != null)
+        {
+            Button scopeBtn = scopeBtnTr.GetComponent<Button>();
+            if (scopeBtn != null)
+            {
+                scopeBtn.onClick.RemoveAllListeners();
+                scopeBtn.onClick.AddListener(() => StartScopeEdit(list, capturedIndex, panel));
+            }
+            
+            // Scope_correction 버튼은 If/While 블록일 때만 보여야 합니다.
+            CommandBlock block = list[index];
+            scopeBtn.gameObject.SetActive(block.type == CommandType.If || block.type == CommandType.While);
+        }
+
+        Transform obsBtnTr = child.Find("ConditionObstacle_Btn");
+        if (obsBtnTr != null)
+        {
+            Button obsBtn = obsBtnTr.GetComponent<Button>();
+            if (obsBtn != null)
+            {
+                obsBtn.onClick.RemoveAllListeners();
+                obsBtn.onClick.AddListener(() => CycleConditionObstacle(list, capturedIndex, panel));
+            }
+            CommandBlock block = list[index];
+            obsBtnTr.gameObject.SetActive(block.type == CommandType.If || block.type == CommandType.While);
+        }
+
+        Transform stateBtnTr = child.Find("ConditionState_Btn");
+        if (stateBtnTr != null)
+        {
+            Button stateBtn = stateBtnTr.GetComponent<Button>();
+            if (stateBtn != null)
+            {
+                stateBtn.onClick.RemoveAllListeners();
+                stateBtn.onClick.AddListener(() => ToggleConditionState(list, capturedIndex, panel));
+            }
+            CommandBlock block = list[index];
+            stateBtnTr.gameObject.SetActive(block.type == CommandType.If || block.type == CommandType.While);
+        }
+    }
+
+    private void ClearSlotEvents(Transform child, GameObject panel)
+    {
+        MouseButtonHandler handler = child.GetComponent<MouseButtonHandler>();
+        if (handler == null) handler = child.gameObject.AddComponent<MouseButtonHandler>();
+
+        if (handler != null)
+        {
+            handler.onLeftClick.RemoveAllListeners();
+            handler.onRightClick.RemoveAllListeners();
+            
+            handler.onLeftClick.AddListener(() => {
+                if (!isExecuting && !isEditingScope)
+                {
+                    SetActivePanel(GetListIndexByPanel(panel));
+                }
+            });
+        }
+
+        Transform scopeBtnTr = child.Find("Scope_correction");
+        if (scopeBtnTr != null) scopeBtnTr.gameObject.SetActive(false);
+
+        Transform obsBtnTr = child.Find("ConditionObstacle_Btn");
+        if (obsBtnTr != null) obsBtnTr.gameObject.SetActive(false);
+
+        Transform stateBtnTr = child.Find("ConditionState_Btn");
+        if (stateBtnTr != null) stateBtnTr.gameObject.SetActive(false);
+    }
+
+    private void CycleConditionObstacle(List<CommandBlock> list, int index, GameObject panel)
+    {
+        if (isExecuting) return;
+        CommandBlock block = list[index];
+        
+        if (block.conditionObstacle == ObstacleType.None) block.conditionObstacle = ObstacleType.Tree;
+        else if (block.conditionObstacle == ObstacleType.Tree) block.conditionObstacle = ObstacleType.Box;
+        else if (block.conditionObstacle == ObstacleType.Box) block.conditionObstacle = ObstacleType.Rock;
+        else if (block.conditionObstacle == ObstacleType.Rock) block.conditionObstacle = ObstacleType.Cliff;
+        else if (block.conditionObstacle == ObstacleType.Cliff) block.conditionObstacle = ObstacleType.Tree;
+
+        RefreshAllPanels();
+    }
+
+    private void ToggleConditionState(List<CommandBlock> list, int index, GameObject panel)
+    {
+        if (isExecuting) return;
+        CommandBlock block = list[index];
+        block.conditionExpectedState = !block.conditionExpectedState;
+        
+        RefreshAllPanels();
+    }
+
+    private void StartScopeEdit(List<CommandBlock> list, int index, GameObject panel)
+    {
+        if (isExecuting) return;
+        
+        // 클릭 모드 진입
+        isEditingScope = true;
+        editingScopeStartIndex = index;
+        editingScopeList = list;
+        editingScopePanel = panel;
+        
+        Debug.Log($"[Scope Edit] {index}번 블록의 범위 설정을 시작합니다. 닫을 마지막 블록을 클릭하세요.");
+        RefreshAllPanels();
+    }
+
+    private void OnSlotRightClicked(List<CommandBlock> list, int index, GameObject panel)
+    {
+        if (isExecuting || isEditingScope) return;
+        
+        list.RemoveAt(index);
+        insertIndex = -1; // 삭제 시 삽입점 초기화
+        SoundManager.Instance?.PlayCommandClick();
+        RefreshAllPanels();
+    }
+
+    private void OnSlotClicked(List<CommandBlock> list, int index, GameObject panel)
+    {
+        if (isExecuting) return;
+
+        if (isEditingScope && editingScopeList == list && panel == editingScopePanel)
+        {
+            if (index >= editingScopeStartIndex)
+            {
+                int scopeSize = index - editingScopeStartIndex;
+                editingScopeList[editingScopeStartIndex].innerCommandCount = scopeSize;
+                isEditingScope = false;
+                insertIndex = index + 1; // 범위 설정 후 그 다음 위치에 커맨드가 들어가도록 자동 설정
+                RefreshAllPanels();
+            }
+            else
+            {
+                Debug.LogWarning("[Scope Edit] 마지막 블록은 시작 블록(If/While)보다 뒤에 있어야 합니다.");
+            }
+        }
+        else if (!isEditingScope)
+        {
+            activeListIndex = GetListIndexByPanel(panel);
+            insertIndex = index; // 선택한 위치에 삽입되도록 (밀어내기)
+            RefreshAllPanels();
+        }
+    }
+
+    private int GetListIndexByPanel(GameObject panel)
+    {
+        if (panel == commandSequencePanel) return -1;
+        if (functionPanels != null)
+        {
+            for (int i = 0; i < functionPanels.Length; i++)
+            {
+                if (panel == functionPanels[i]) return i;
+            }
+        }
+        return -1;
+    }
+
+    private void UpdateSlotVisuals(Transform child, Image img, List<CommandBlock> list, int index, GameObject panel)
+    {
+        CommandBlock block = list[index];
+        img.color = Color.white; 
+
+        // 범위 수정 모드 하이라이트
+        if (isEditingScope && list == editingScopeList && index == editingScopeStartIndex)
+        {
+            img.color = Color.yellow; 
+            return;
+        }
+
+        // 삽입 지점(Insert Target) 하이라이트 (빨간색)
+        int listIndex = GetListIndexByPanel(panel);
+        if (!isEditingScope && listIndex == activeListIndex && index == insertIndex)
+        {
+            img.color = new Color(1f, 0.7f, 0.7f); // 연한 빨간색
+        }
+
+        // 다른 블록의 Scope(테두리) 안에 속해있는지 확인
+        bool isInsideScope = false;
+        for (int i = 0; i < index; i++)
+        {
+            CommandBlock prev = list[i];
+            if (prev.type == CommandType.If || prev.type == CommandType.While)
+            {
+                if (i + prev.innerCommandCount >= index)
+                {
+                    isInsideScope = true;
+                    break;
+                }
+            }
+        }
+
+        if (isInsideScope)
+        {
+            img.color = new Color(0.8f, 0.9f, 1f); // 약간 파란색 틴트 (If/While 범위 내부에 있음)
+        }
+
+        // -------------------------
+        // 조건 토글 아이콘 시각화 업데이트
+        // -------------------------
+        if (block.type == CommandType.If || block.type == CommandType.While)
+        {
+            Transform obsBtnTr = child.Find("ConditionObstacle_Btn");
+            if (obsBtnTr != null)
+            {
+                Image obsImg = obsBtnTr.GetComponent<Image>();
+                if (obsImg != null)
+                {
+                    switch (block.conditionObstacle)
                     {
-                        case CommandType.Forward: img.sprite = forwardIcon; break;
-                        case CommandType.TurnRight: img.sprite = rightIcon; break;
-                        case CommandType.TurnLeft: img.sprite = leftIcon; break;
-                        case CommandType.Loop:
-                            img.sprite = loopIcon;
-                            if (rect != null) rect.sizeDelta = new Vector2(defaultSlotWidth * 2f, rect.sizeDelta.y);
-                            break;
+                        case ObstacleType.Tree: obsImg.sprite = obsTreeIcon; break;
+                        case ObstacleType.Box: obsImg.sprite = obsBoxIcon; break;
+                        case ObstacleType.Rock: obsImg.sprite = obsRockIcon; break;
+                        case ObstacleType.Cliff: obsImg.sprite = obsCliffIcon; break;
+                        default: obsImg.sprite = obsTreeIcon; break;
                     }
-                    img.color = Color.white;
+                }
+            }
+
+            Transform stateBtnTr = child.Find("ConditionState_Btn");
+            if (stateBtnTr != null)
+            {
+                Image stateImg = stateBtnTr.GetComponent<Image>();
+                if (stateImg != null)
+                {
+                    stateImg.sprite = block.conditionExpectedState ? stateTrueIcon : stateFalseIcon;
                 }
             }
         }
@@ -533,15 +915,20 @@ public class PlayerController : MonoBehaviour
 
     private void HighlightIcon(GameObject panel, int index, bool highlight)
     {
-        if (panel == null || index < 0 || index >= panel.transform.childCount) return;
-        Transform tr = panel.transform.GetChild(index);
+        if (panel == null) return;
+        Transform targetContent = GetPanelContent(panel);
+        if (index < 0 || index >= targetContent.childCount) return;
+        Transform tr = targetContent.GetChild(index);
         tr.localScale = highlight ? Vector3.one * highlightScale : Vector3.one;
     }
 
     private int GetCurrentCost()
     {
-        int total = 0;
-        foreach (var cmd in mainCommandList) total += (cmd == CommandType.Loop) ? 2 : 1;
+        int total = mainCommandList.Count;
+        foreach (var funcList in functionLists)
+        {
+            if (funcList.Count > 0) total += 1 + funcList.Count;
+        }
         return total;
     }
 

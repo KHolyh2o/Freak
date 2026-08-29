@@ -49,21 +49,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   highlightScale: 1.2
   maxFunctionCount: 3
-  forwardIcon: {fileID: 21300000, guid: 6e2ffa87ad0b5ae41aa592f8131374fb, type: 3}
-  rightIcon: {fileID: 21300000, guid: ee462a9e27ed1474795e86d576a430c8, type: 3}
-  leftIcon: {fileID: 21300000, guid: 2b2b3f61d03e8cf4492759b83e0949ce, type: 3}
-  loopIcon: {fileID: 21300000, guid: 18d6dbcf5d5df2b4d8738b9b70113e80, type: 3}
-  ifIcon: {fileID: 21300000, guid: 565b928b68c7548f69db6afbd27e4665, type: 3}
-  whileIcon: {fileID: 21300000, guid: 09ed3e9e912be4401af219e53167d8f3, type: 3}
-  emptySlotSprite: {fileID: 21300000, guid: b62c78ac72a88a54fb49574c14073c9d, type: 3}
+  forwardIcon: {fileID: 21300000, guid: 5cfb7312efd8d4ecbafdac1a43c94d93, type: 3}
+  rightIcon: {fileID: 21300000, guid: 4495e0cd6b6e9450e9e2720654864366, type: 3}
+  leftIcon: {fileID: 21300000, guid: 2fd0c0461c53f49f099fc38a40209c17, type: 3}
+  loopIcon: {fileID: 21300000, guid: 08c7b2a436e46491dab79dc14211427b, type: 3}
+  ifIcon: {fileID: 21300000, guid: e101170671ea843d3ad233fc7cca5d55, type: 3}
+  whileIcon: {fileID: 21300000, guid: 280b866b61db3462db080703279d2064, type: 3}
+  emptySlotSprite: {fileID: 21300000, guid: baabc7f04c97c4fa4a81b940166933e0, type: 3}
   obsTreeIcon: {fileID: 21300000, guid: c357a86918ab7415cb976e6e5c98a1db, type: 3}
   obsBoxIcon: {fileID: 21300000, guid: bac808590871a43a28c7177dfd2a43fd, type: 3}
   obsRockIcon: {fileID: 21300000, guid: 4527572475305459a9aa9015b4d79edf, type: 3}
   obsCliffIcon: {fileID: 21300000, guid: a467d265a1d4f4801a7ddec3a35727df, type: 3}
   stateTrueIcon: {fileID: 21300000, guid: ebd491768a19944feba3e2845caf7756, type: 3}
   stateFalseIcon: {fileID: 21300000, guid: 6a1c376129a7042b78be4ec0fa359297, type: 3}
-  startBox: {fileID: 2757185673320681108, guid: 37db4f41756348c4092a5893b77bea4f, type: 3}
+  startBox: {fileID: 0}
   endPoint: {fileID: 0}
+  activeListIndex: -1
+  insertIndex: -1
   moveStep: 1
   turnStep: 90
   moveDuration: 0.5

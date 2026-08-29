@@ -28,6 +28,12 @@ public class NvidiaAIAssistant : MonoBehaviour
 
     public void RequestAIHelp(string missingSkill)
     {
+        if (SettingsManager.Instance != null && !SettingsManager.Instance.isAISupportEnabled)
+        {
+            Debug.Log("[NvidiaAIAssistant] AI 서포트가 설정에서 꺼져 있으므로 도움을 요청하지 않습니다.");
+            return;
+        }
+
         string prompt = "";
         
         switch(missingSkill)

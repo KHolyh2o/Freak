@@ -245,12 +245,20 @@ public class CameraSwitcher : MonoBehaviour
                         // 3개가 켜져서 '실제로 스크롤이 가능해진 상황'인지 확인 (Content 높이 > Viewport 높이)
                         if (scrollRect.content != null && scrollRect.viewport != null)
                         {
-                            if (scrollRect.content.rect.height > scrollRect.viewport.rect.height)
+                            if (scrollRect.content.rect.height > scrollRect.viewport.rect.height || 
+                                scrollRect.content.rect.width > scrollRect.viewport.rect.width)
                             {
                                 isOverScrollView = true;
                                 break;
                             }
                         }
+                    }
+                    
+                    // 커맨드 버튼(드래그 소스) 위에서 드래그를 시작한 경우도 카메라 회전 무시
+                    if (hit.gameObject.GetComponentInParent<CommandDragSource>() != null)
+                    {
+                        isOverScrollView = true;
+                        break;
                     }
                 }
             }

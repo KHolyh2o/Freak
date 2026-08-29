@@ -68,6 +68,7 @@ public class PlayerController : MonoBehaviour
     private Vector3 startPosition;
     private Quaternion startRotation;
     private bool isExecuting = false;
+    public bool IsExecuting() => isExecuting;
 
     // --- Scope 수정 상태 ---
     private bool isEditingScope = false;
@@ -347,8 +348,6 @@ public class PlayerController : MonoBehaviour
 
     private Transform GetPanelContent(GameObject panel)
     {
-        if (panel == commandSequencePanel) return panel.transform;
-
         Transform viewport = panel.transform.Find("Viewport");
         if (viewport != null)
         {
@@ -364,6 +363,22 @@ public class PlayerController : MonoBehaviour
 
         foreach (Transform child in targetContent) Destroy(child.gameObject);
 
+        // 유저가 측정한 기준 좌표
+        float panelLocalX = -289.2f;
+        float panelLocalY = 18.4f;
+        float intervalX = 64.5f;
+
+        // 기준이 되는 Panel (Viewport의 부모)을 찾습니다.
+        Transform referencePanel = targetContent;
+        if (targetContent.parent != null && targetContent.parent.name == "Viewport")
+        {
+            referencePanel = targetContent.parent.parent;
+        }
+
+        // 실제 패널 기준의 좌표를 월드 좌표로 바꾼 뒤, Content 내부의 로컬 좌표로 다시 변환합니다.
+        Vector3 worldPos = referencePanel.TransformPoint(new Vector3(panelLocalX, panelLocalY, 0));
+        Vector3 contentLocalPos = targetContent.InverseTransformPoint(worldPos);
+
         for (int i = 0; i < maxCount; i++)
         {
             GameObject slot = Instantiate(commandSlotPrefab, targetContent);
@@ -377,8 +392,18 @@ public class PlayerController : MonoBehaviour
             RectTransform rect = slot.GetComponent<RectTransform>();
             if (rect != null)
             {
+                // UI 앵커에 구애받지 않도록 localPosition을 직접 세팅합니다.
+                rect.localPosition = new Vector3(contentLocalPos.x + (i * intervalX), contentLocalPos.y, 0);
                 rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
             }
+        }
+        
+        // 스크롤이 작동하도록 Content의 가로 길이를 명령 블록 개수에 맞춰 늘려줍니다.
+        RectTransform contentRect = targetContent.GetComponent<RectTransform>();
+        if (contentRect != null)
+        {
+            float totalWidth = Mathf.Abs(contentLocalPos.x) + (maxCount * intervalX) + 50f;
+            contentRect.sizeDelta = new Vector2(totalWidth, contentRect.sizeDelta.y);
         }
     }
 
@@ -694,7 +719,14 @@ public class PlayerController : MonoBehaviour
 
         int capturedIndex = index;
         handler.onLeftClick.AddListener(() => OnSlotClicked(list, capturedIndex, panel));
-        handler.onRightClick.AddListener(() => OnSlotRightClicked(list, capturedIndex, panel));
+        // handler.onRightClick.AddListener(() => OnSlotRightClicked(list, capturedIndex, panel)); // 우클릭 삭제 비활성화
+
+        SlotDragHandler dragHandler = child.GetComponent<SlotDragHandler>();
+        if (dragHandler == null) dragHandler = child.gameObject.AddComponent<SlotDragHandler>();
+        dragHandler.playerController = this;
+        dragHandler.panel = panel;
+        dragHandler.commandList = list;
+        dragHandler.slotIndex = capturedIndex;
 
         Transform scopeBtnTr = child.Find("Scope_correction");
         if (scopeBtnTr != null)
@@ -755,6 +787,9 @@ public class PlayerController : MonoBehaviour
                 }
             });
         }
+
+        SlotDragHandler dragHandler = child.GetComponent<SlotDragHandler>();
+        if (dragHandler != null) Destroy(dragHandler);
 
         Transform scopeBtnTr = child.Find("Scope_correction");
         if (scopeBtnTr != null) scopeBtnTr.gameObject.SetActive(false);
@@ -835,7 +870,7 @@ public class PlayerController : MonoBehaviour
         else if (!isEditingScope)
         {
             activeListIndex = GetListIndexByPanel(panel);
-            insertIndex = index; // 선택한 위치에 삽입되도록 (밀어내기)
+            // insertIndex = index; // <--- 중간 삽입 위치 지정(클릭) 기능 삭제! 이제 무조건 맨 끝에 추가됩니다.
             RefreshAllPanels();
         }
     }
@@ -950,9 +985,113 @@ public class PlayerController : MonoBehaviour
         if (limitText == null) return;
         int current = GetCurrentCost();
         limitText.text = $"{current} / {maxCommandCost}";
-        limitText.color = (current >= maxCommandCost) ? Color.red : Color.white;
+        limitText.color = (current >= maxCommandCost) ? Color.red : Color.black;
     }
 
 
 
+    // ---------------------------------------------------------
+    // 드래그 앤 드롭 지원 (Drag & Drop)
+    // ---------------------------------------------------------
+    public void HandleDropInsert(UnityEngine.EventSystems.PointerEventData eventData, CommandBlock block)
+    {
+        GameObject targetPanel = null;
+        List<UnityEngine.EventSystems.RaycastResult> results = new List<UnityEngine.EventSystems.RaycastResult>();
+        UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
+
+        foreach (var result in results)
+        {
+            if (commandSequencePanel != null && result.gameObject.transform.IsChildOf(commandSequencePanel.transform))
+            {
+                targetPanel = commandSequencePanel;
+                break;
+            }
+            if (functionPanels != null)
+            {
+                foreach (var fPanel in functionPanels)
+                {
+                    if (fPanel != null && result.gameObject.transform.IsChildOf(fPanel.transform))
+                    {
+                        targetPanel = fPanel;
+                        break;
+                    }
+                }
+            }
+            if (targetPanel != null) break;
+        }
+
+        Debug.Log($"[DragDrop] Raycast targetPanel: {targetPanel?.name ?? "null"}");
+
+        if (targetPanel != null)
+        {
+            int listIndex = GetListIndexByPanel(targetPanel);
+            Debug.Log($"[DragDrop] listIndex: {listIndex}");
+            if (listIndex >= -1)
+            {
+                List<CommandBlock> targetList = listIndex == -1 ? mainCommandList : functionLists[listIndex];
+                
+                int currentCost = GetCurrentCost();
+                if (currentCost >= maxCommandCost)
+                {
+                    SoundManager.Instance?.PlayBump();
+                    return;
+                }
+
+                Transform contentTr = GetPanelContent(targetPanel);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)contentTr, eventData.position, eventData.pressEventCamera, out Vector2 localPoint);
+                
+                float panelLocalX = -289.2f;
+                float intervalX = 64.5f;
+                
+                Transform referencePanel = contentTr;
+                if (contentTr.parent != null && contentTr.parent.name == "Viewport") referencePanel = contentTr.parent.parent;
+                
+                Vector3 worldPos = referencePanel.TransformPoint(new Vector3(panelLocalX, 0, 0));
+                Vector3 startLocalPos = contentTr.InverseTransformPoint(worldPos);
+                
+                int dropIndex = Mathf.RoundToInt((localPoint.x - startLocalPos.x) / intervalX);
+                dropIndex = Mathf.Clamp(dropIndex, 0, targetList.Count);
+
+                targetList.Insert(dropIndex, block);
+                
+                if (listIndex == activeListIndex && insertIndex >= dropIndex)
+                {
+                    insertIndex++;
+                }
+                
+                RefreshAllPanels();
+                UpdateLimitText();
+                SoundManager.Instance?.PlayCommandClick();
+            }
+        }
+    }
+
+    public void HandleDropSlot(Vector2 screenPos, GameObject originPanel, List<CommandBlock> commandList, int originIndex, Camera cam = null)
+    {
+        RectTransform panelRect = originPanel.GetComponent<RectTransform>();
+        // 만약 패널 바깥으로 드래그 앤 드롭했다면 삭제
+        if (!RectTransformUtility.RectangleContainsScreenPoint(panelRect, screenPos, cam))
+        {
+            if (originIndex >= 0 && originIndex < commandList.Count)
+            {
+                commandList.RemoveAt(originIndex);
+                
+                int panelIdx = GetListIndexByPanel(originPanel);
+                if (panelIdx == activeListIndex)
+                {
+                    insertIndex = -1; // 삭제 시 삽입점 초기화
+                }
+                
+                if (isEditingScope && editingScopeList == commandList)
+                {
+                    isEditingScope = false;
+                    editingScopeList = null;
+                }
+
+                RefreshAllPanels();
+                UpdateLimitText();
+                SoundManager.Instance?.PlayCommandClick();
+            }
+        }
+    }
 }

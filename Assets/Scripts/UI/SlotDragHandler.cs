@@ -59,7 +59,7 @@ public class SlotDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (playerController != null && !playerController.IsExecuting())
         {
-            playerController.HandleDropSlot(eventData.position, panel, commandList, slotIndex, eventData.pressEventCamera);
+            playerController.HandleDropSlot(eventData, panel, commandList, slotIndex);
         }
     }
 

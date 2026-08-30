@@ -35,7 +35,6 @@ public class PlayerController : MonoBehaviour
     private GameObject[] functionPanels;
     private GameObject commandSlotPrefab;
     private GameObject successPanel;
-    private GameObject loopConfigPopup;
     private TextMeshProUGUI limitText;
     private GameObject inGameUIGroup;
 
@@ -44,10 +43,16 @@ public class PlayerController : MonoBehaviour
     public Sprite forwardIcon;
     public Sprite rightIcon;
     public Sprite leftIcon;
-    public Sprite loopIcon;
+    public Sprite loopIcon; // 기본 함수 아이콘 (이전 버전 호환용)
     public Sprite ifIcon;
     public Sprite whileIcon;
-    public Sprite emptySlotSprite;
+    public Sprite emptySlotSprite; // 기본 빈 슬롯 (이전 버전 호환용)
+
+    [Header("함수 아이콘 (F1, F2, F3)")]
+    public Sprite[] functionCallIcons; 
+
+    [Header("빈 슬롯 배경 (F1, F2, F3)")]
+    public Sprite[] emptySlotSprites;
 
     [Header("조건 토글 아이콘 (장애물)")]
     public Sprite obsTreeIcon;
@@ -208,13 +213,12 @@ public class PlayerController : MonoBehaviour
 #endif
     }
 
-    public void InitializeUI(GameObject mainPanel, GameObject[] functionPnls, GameObject slotPrefab, GameObject successPnl, GameObject loopPopup, TextMeshProUGUI limitTxt, GameObject inGameUI)
+    public void InitializeUI(GameObject mainPanel, GameObject[] functionPnls, GameObject slotPrefab, GameObject successPnl, TextMeshProUGUI limitTxt, GameObject inGameUI)
     {
         this.commandSequencePanel = mainPanel;
         this.functionPanels = functionPnls;
         this.commandSlotPrefab = slotPrefab;
         this.successPanel = successPnl;
-        this.loopConfigPopup = loopPopup;
         this.limitText = limitTxt;
         this.inGameUIGroup = inGameUI;
         // ... (rest of method if needed, but tool replaces contiguous block)
@@ -355,6 +359,18 @@ public class PlayerController : MonoBehaviour
             if (content != null) return content;
         }
         return panel.transform;
+    }
+
+    private RectTransform GetDropZoneRect(GameObject panel)
+    {
+        if (panel == null) return null;
+        Transform viewport = panel.transform.Find("Viewport");
+        if (viewport != null) return viewport as RectTransform;
+        
+        UnityEngine.UI.Image bg = panel.GetComponentInChildren<UnityEngine.UI.Image>();
+        if (bg != null) return bg.rectTransform;
+        
+        return panel.GetComponent<RectTransform>();
     }
 
     private void PopulateSlots(GameObject panel, int maxCount)
@@ -670,6 +686,7 @@ public class PlayerController : MonoBehaviour
     {
         if (panel == null || commandSlotPrefab == null) return;
 
+        int panelListIndex = GetListIndexByPanel(panel);
         Transform targetContent = GetPanelContent(panel);
         int cmdIndex = 0;
         for (int i = 0; i < targetContent.childCount; i++)
@@ -688,7 +705,16 @@ public class PlayerController : MonoBehaviour
                     case CommandType.Forward: img.sprite = forwardIcon; break;
                     case CommandType.TurnRight: img.sprite = rightIcon; break;
                     case CommandType.TurnLeft: img.sprite = leftIcon; break;
-                    case CommandType.CallFunction: img.sprite = loopIcon; break;
+                    case CommandType.CallFunction: 
+                        if (functionCallIcons != null && block.functionIndex >= 0 && block.functionIndex < functionCallIcons.Length && functionCallIcons[block.functionIndex] != null)
+                        {
+                            img.sprite = functionCallIcons[block.functionIndex];
+                        }
+                        else
+                        {
+                            img.sprite = loopIcon;
+                        }
+                        break;
                     case CommandType.If: img.sprite = ifIcon; break;
                     case CommandType.While: img.sprite = whileIcon; break;
                 }
@@ -701,7 +727,23 @@ public class PlayerController : MonoBehaviour
             }
             else
             {
-                img.sprite = emptySlotSprite;
+                // 빈 슬롯 처리: 메인 패널은 기본 emptySlotSprite 사용, F1~F3은 배열 사용
+                if (panelListIndex == -1) // 메인 패널
+                {
+                    img.sprite = emptySlotSprite;
+                }
+                else // F1, F2, F3 패널
+                {
+                    if (emptySlotSprites != null && panelListIndex >= 0 && panelListIndex < emptySlotSprites.Length && emptySlotSprites[panelListIndex] != null)
+                    {
+                        img.sprite = emptySlotSprites[panelListIndex];
+                    }
+                    else
+                    {
+                        img.sprite = emptySlotSprite; // 할당 안 되어있으면 기본값 폴백
+                    }
+                }
+                
                 rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
                 img.color = Color.white;
                 ClearSlotEvents(child, panel);
@@ -995,7 +1037,7 @@ public class PlayerController : MonoBehaviour
     // ---------------------------------------------------------
     public void HandleDropInsert(UnityEngine.EventSystems.PointerEventData eventData, CommandBlock block)
     {
-        GameObject targetPanel = null;
+        GameObject hitPanel = null;
         List<UnityEngine.EventSystems.RaycastResult> results = new List<UnityEngine.EventSystems.RaycastResult>();
         UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
 
@@ -1003,7 +1045,7 @@ public class PlayerController : MonoBehaviour
         {
             if (commandSequencePanel != null && result.gameObject.transform.IsChildOf(commandSequencePanel.transform))
             {
-                targetPanel = commandSequencePanel;
+                hitPanel = commandSequencePanel;
                 break;
             }
             if (functionPanels != null)
@@ -1012,18 +1054,17 @@ public class PlayerController : MonoBehaviour
                 {
                     if (fPanel != null && result.gameObject.transform.IsChildOf(fPanel.transform))
                     {
-                        targetPanel = fPanel;
+                        hitPanel = fPanel;
                         break;
                     }
                 }
             }
-            if (targetPanel != null) break;
+            if (hitPanel != null) break;
         }
 
-        Debug.Log($"[DragDrop] Raycast targetPanel: {targetPanel?.name ?? "null"}");
-
-        if (targetPanel != null)
+        if (hitPanel != null)
         {
+            GameObject targetPanel = activeListIndex == -1 ? commandSequencePanel : functionPanels[activeListIndex];
             int listIndex = GetListIndexByPanel(targetPanel);
             Debug.Log($"[DragDrop] listIndex: {listIndex}");
             if (listIndex >= -1)
@@ -1066,15 +1107,39 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    public void HandleDropSlot(Vector2 screenPos, GameObject originPanel, List<CommandBlock> commandList, int originIndex, Camera cam = null)
+    public void HandleDropSlot(UnityEngine.EventSystems.PointerEventData eventData, GameObject originPanel, List<CommandBlock> originList, int originIndex)
     {
-        RectTransform panelRect = originPanel.GetComponent<RectTransform>();
-        // 만약 패널 바깥으로 드래그 앤 드롭했다면 삭제
-        if (!RectTransformUtility.RectangleContainsScreenPoint(panelRect, screenPos, cam))
+        GameObject hitPanel = null;
+        List<UnityEngine.EventSystems.RaycastResult> results = new List<UnityEngine.EventSystems.RaycastResult>();
+        UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
+
+        foreach (var result in results)
         {
-            if (originIndex >= 0 && originIndex < commandList.Count)
+            if (commandSequencePanel != null && result.gameObject.transform.IsChildOf(commandSequencePanel.transform))
             {
-                commandList.RemoveAt(originIndex);
+                hitPanel = commandSequencePanel;
+                break;
+            }
+            if (functionPanels != null)
+            {
+                foreach (var fPanel in functionPanels)
+                {
+                    if (fPanel != null && result.gameObject.transform.IsChildOf(fPanel.transform))
+                    {
+                        hitPanel = fPanel;
+                        break;
+                    }
+                }
+            }
+            if (hitPanel != null) break;
+        }
+
+        // 만약 패널 바깥으로 드래그 앤 드롭했다면 삭제
+        if (hitPanel == null)
+        {
+            if (originIndex >= 0 && originIndex < originList.Count)
+            {
+                originList.RemoveAt(originIndex);
                 
                 int panelIdx = GetListIndexByPanel(originPanel);
                 if (panelIdx == activeListIndex)
@@ -1082,7 +1147,7 @@ public class PlayerController : MonoBehaviour
                     insertIndex = -1; // 삭제 시 삽입점 초기화
                 }
                 
-                if (isEditingScope && editingScopeList == commandList)
+                if (isEditingScope && editingScopeList == originList)
                 {
                     isEditingScope = false;
                     editingScopeList = null;
@@ -1091,6 +1156,46 @@ public class PlayerController : MonoBehaviour
                 RefreshAllPanels();
                 UpdateLimitText();
                 SoundManager.Instance?.PlayCommandClick();
+            }
+        }
+        else
+        {
+            // 어떠한 패널이든 위에서 드롭했다면 (빈틈으로 인해 뒤쪽 패널이 맞았더라도)
+            // 무조건 출발했던 originPanel 안에서 순서가 변경된 것으로 간주
+            GameObject targetPanel = originPanel;
+
+            if (originIndex >= 0 && originIndex < originList.Count)
+            {
+                CommandBlock blockToMove = originList[originIndex];
+                int targetListIndex = GetListIndexByPanel(targetPanel);
+                
+                if (targetListIndex >= -1)
+                {
+                    List<CommandBlock> targetList = targetListIndex == -1 ? mainCommandList : functionLists[targetListIndex];
+                    
+                    Transform contentTr = GetPanelContent(targetPanel);
+                    RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)contentTr, eventData.position, eventData.pressEventCamera, out Vector2 localPoint);
+                    
+                    float panelLocalX = -289.2f;
+                    float intervalX = 64.5f;
+                    
+                    Transform referencePanel = contentTr;
+                    if (contentTr.parent != null && contentTr.parent.name == "Viewport") referencePanel = contentTr.parent.parent;
+                    
+                    Vector3 worldPos = referencePanel.TransformPoint(new Vector3(panelLocalX, 0, 0));
+                    Vector3 startLocalPos = contentTr.InverseTransformPoint(worldPos);
+                    
+                    int dropIndex = Mathf.RoundToInt((localPoint.x - startLocalPos.x) / intervalX);
+                    
+                    originList.RemoveAt(originIndex);
+                    
+                    dropIndex = Mathf.Clamp(dropIndex, 0, targetList.Count);
+                    targetList.Insert(dropIndex, blockToMove);
+
+                    RefreshAllPanels();
+                    UpdateLimitText();
+                    SoundManager.Instance?.PlayCommandClick();
+                }
             }
         }
     }

@@ -22,10 +22,10 @@ public class SettingsUI : MonoBehaviour
     public Sprite aiSupportOnSprite;
     public Sprite aiSupportOffSprite;
 
-    [Header("Dummy Toggle")]
-    public Button dummyToggleButton;
-    public Image dummyToggleImage;
-    public Sprite dummyOffSprite; // 더미 기능이므로 OFF만 사용한다고 가정
+    [Header("Subtitle Toggle")]
+    public Button subtitleToggleButton;
+    public Image subtitleToggleImage;
+    public Sprite subtitleOffSprite; // 현재 자막 미지원이므로 항상 OFF
 
     [Header("Language Dropdown")]
     public Button languageDropdownButton; // 나중에 확장 시 사용. 현재는 비활성화.
@@ -56,8 +56,18 @@ public class SettingsUI : MonoBehaviour
         if (aiSupportButton != null)
             aiSupportButton.onClick.AddListener(OnAISupportToggleClicked);
 
-        // 더미 버튼은 클릭 시 아무 기능도 없지만 시각적 효과를 원한다면 구현할 수 있습니다.
-        // 현재는 항상 OFF 상태 유지.
+        // 자막 버튼은 현재 미지원이므로 항상 OFF 이미지 유지, 클릭해도 반응 없게 만듦
+        if (subtitleToggleImage != null && subtitleOffSprite != null)
+        {
+            subtitleToggleImage.sprite = subtitleOffSprite;
+        }
+        if (subtitleToggleButton != null)
+        {
+            subtitleToggleButton.onClick.AddListener(() => {
+                // 클릭 시 안 된다는 피드백(효과음) 정도만 줌
+                SoundManager.Instance?.PlayBump();
+            });
+        }
         
         // 언어 버튼 시각적 비활성화 (영어 선택 불가능)
         if (languageDropdownButton != null)

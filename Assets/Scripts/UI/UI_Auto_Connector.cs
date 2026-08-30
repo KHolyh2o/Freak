@@ -57,6 +57,7 @@ public class UI_Auto_Connector : MonoBehaviour
         if (gameManager != null)
         {
             gameManager.SetPausePanel(pausePanel);
+            gameManager.SetInGameUI(inGameUIGroup);
 
             if (settingsButton != null)
             {

@@ -1,21 +1,27 @@
 using UnityEngine;
-using UnityEngine.SceneManagement; // ¾À °ü¸®¸¦ À§ÇØ ÇÊ¼ö
+using UnityEngine.SceneManagement; // ì”¬ ê´€ë¦¬ë¥¼ ìœ„í•´ í•„ìˆ˜
 
 public class GameManager : MonoBehaviour
 {
-    // UI_Auto_Connector°¡ ¿¬°áÇØÁÙ ÆÛÁî ÆĞ³Î
+    // UI_Auto_Connectorê°€ ì—°ê²°í•´ì¤„ í¼ì¦ˆ íŒ¨ë„
     private GameObject pausePanel;
+    private GameObject inGameUIGroup;
     private bool isPaused = false;
 
-    // UI_Auto_Connector°¡ È£ÃâÇØ¼­ ÆĞ³ÎÀ» µî·ÏÇØÁÖ´Â ÇÔ¼ö
+    // UI_Auto_Connectorê°€ í˜¸ì¶œí•´ì„œ íŒ¨ë„ì„ ë“±ë¡í•´ì£¼ëŠ” í•¨ìˆ˜
     public void SetPausePanel(GameObject panel)
     {
         this.pausePanel = panel;
     }
 
+    public void SetInGameUI(GameObject uiGroup)
+    {
+        this.inGameUIGroup = uiGroup;
+    }
+
     void Update()
     {
-        // ESC Å° ÀÔ·Â °¨Áö -> ÆÛÁî Åä±Û
+        // ESC í‚¤ ì…ë ¥ ê°ì§€ -> í¼ì¦ˆ í† ê¸€
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (isPaused) ResumeGame();
@@ -23,32 +29,38 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- ±â´É ÇÔ¼öµé ---
+    // --- ê¸°ëŠ¥ í•¨ìˆ˜ë“¤ ---
 
-    // ÀÏ½Ã Á¤Áö
+    // ì¼ì‹œ ì •ì§€
     public void PauseGame()
     {
         isPaused = true;
-        Time.timeScale = 0f; // ¡Ú ½Ã°£À» ¸ØÃã (¹°¸®, ¾Ö´Ï¸ŞÀÌ¼Ç Á¤Áö)
+        Time.timeScale = 0f; // â˜… ì‹œê°„ì„ ë©ˆì¶¤ (ë¬¼ë¦¬, ì• ë‹ˆë©”ì´ì…˜ ì •ì§€)
 
         if (pausePanel != null)
-            pausePanel.SetActive(true); // ÆĞ³Î ÄÑ±â
+            pausePanel.SetActive(true); // íŒ¨ë„ ì¼œê¸°
+            
+        if (inGameUIGroup != null)
+            inGameUIGroup.SetActive(false);
     }
 
-    // °ÔÀÓ Àç°³ (µ¹¾Æ°¡±â)
+    // ê²Œì„ ì¬ê°œ (ëŒì•„ê°€ê¸°)
     public void ResumeGame()
     {
         isPaused = false;
-        Time.timeScale = 1f; // ¡Ú ½Ã°£À» ´Ù½Ã Èå¸£°Ô ÇÔ
+        Time.timeScale = 1f; // â˜… ì‹œê°„ì„ ë‹¤ì‹œ íë¥´ê²Œ í•¨
 
         if (pausePanel != null)
-            pausePanel.SetActive(false); // ÆĞ³Î ²ô±â
+            pausePanel.SetActive(false); // íŒ¨ë„ ë„ê¸°
+            
+        if (inGameUIGroup != null)
+            inGameUIGroup.SetActive(true);
     }
 
-    // ÇöÀç ½ºÅ×ÀÌÁö Àç½ÃÀÛ (´Ù½ÃÇÏ±â ¹öÆ°¿ë)
+    // í˜„ì¬ ìŠ¤í…Œì´ì§€ ì¬ì‹œì‘ (ë‹¤ì‹œí•˜ê¸° ë²„íŠ¼ìš©)
     public void RestartLevel()
     {
-        // Àç½ÃÀÛ Àü¿¡ ¹İµå½Ã ½Ã°£À» Á¤»óÈ­ÇØ¾ß ÇÔ
+        // ì¬ì‹œì‘ ì „ì— ë°˜ë“œì‹œ ì‹œê°„ì„ ì •ìƒí™”í•´ì•¼ í•¨
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }

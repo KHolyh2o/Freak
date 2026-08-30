@@ -9,7 +9,6 @@ public class UI_Auto_Connector : MonoBehaviour
     public GameObject[] functionPanels; // F1, F2, F3 패널
     public GameObject commandSlotPrefab;
     public GameObject successPanel;
-    public GameObject loopConfigPopup;
     public TextMeshProUGUI limitText;
 
     // 게임 중 UI 묶음
@@ -108,7 +107,6 @@ public class UI_Auto_Connector : MonoBehaviour
             functionPanels,
             commandSlotPrefab,
             successPanel,
-            loopConfigPopup,
             limitText,
             inGameUIGroup
         );

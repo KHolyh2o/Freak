@@ -56,12 +56,20 @@ MonoBehaviour:
   ifIcon: {fileID: 21300000, guid: e101170671ea843d3ad233fc7cca5d55, type: 3}
   whileIcon: {fileID: 21300000, guid: 280b866b61db3462db080703279d2064, type: 3}
   emptySlotSprite: {fileID: 21300000, guid: baabc7f04c97c4fa4a81b940166933e0, type: 3}
-  obsTreeIcon: {fileID: 21300000, guid: c357a86918ab7415cb976e6e5c98a1db, type: 3}
-  obsBoxIcon: {fileID: 21300000, guid: bac808590871a43a28c7177dfd2a43fd, type: 3}
-  obsRockIcon: {fileID: 21300000, guid: 4527572475305459a9aa9015b4d79edf, type: 3}
-  obsCliffIcon: {fileID: 21300000, guid: a467d265a1d4f4801a7ddec3a35727df, type: 3}
-  stateTrueIcon: {fileID: 21300000, guid: ebd491768a19944feba3e2845caf7756, type: 3}
-  stateFalseIcon: {fileID: 21300000, guid: 6a1c376129a7042b78be4ec0fa359297, type: 3}
+  functionCallIcons:
+  - {fileID: 21300000, guid: b3b8cddbd835a4500b003bb59d3b71a7, type: 3}
+  - {fileID: 21300000, guid: 373d95182b89a4146b5c50d3417d3882, type: 3}
+  - {fileID: 21300000, guid: 8808480d0d12a47a58fd16a720f29210, type: 3}
+  emptySlotSprites:
+  - {fileID: 21300000, guid: e571c2c246dc9457b8f81e45ed76c7a7, type: 3}
+  - {fileID: 21300000, guid: 2edf5f6e4ffeb44c4b974d861c12d845, type: 3}
+  - {fileID: 21300000, guid: a7169a4a638ba4c8092dd9bff4ac4d34, type: 3}
+  obsTreeIcon: {fileID: 21300000, guid: 98cddf52bfcf544f1ab733ac96c41da2, type: 3}
+  obsBoxIcon: {fileID: 21300000, guid: 17b8e1eba3d764ec7be055a2f3032ddd, type: 3}
+  obsRockIcon: {fileID: 21300000, guid: 50cbe0c6c87974716bb5b09480b5fe3f, type: 3}
+  obsCliffIcon: {fileID: 21300000, guid: a5daec0368faf4236a83c46ce22d10a1, type: 3}
+  stateTrueIcon: {fileID: 21300000, guid: 9e3f91771c382423d9f7ccfdc62185fa, type: 3}
+  stateFalseIcon: {fileID: 21300000, guid: 5639869c7e6fc4cc780b28982118d8b7, type: 3}
   startBox: {fileID: 0}
   endPoint: {fileID: 0}
   activeListIndex: -1

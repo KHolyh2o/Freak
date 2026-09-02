@@ -11,8 +11,9 @@ public class CameraSwitcher : MonoBehaviour
     public Transform isometricTarget; // 회전 중심축 (비워두면 카메라가 바라보는 땅이 축이 됨)
     public float isometricDragSpeed = 250f; // 좌우 드래그 회전 속도
     public int dragMouseButton = 0; // 0: 좌클릭, 1: 우클릭, 2: 휠클릭
-    [Tooltip("화면에 맵이 너무 위/아래에 쏠릴 때 보정하는 오프셋 (양수면 맵이 화면 아래로 내려옵니다)")]
-    public float isometricScreenYOffset = 0f;
+    [Header("쿼터뷰(0번) 오프셋 설정")]
+    [Tooltip("화면에서 맵이 더 위/아래에 위치하도록 렌즈 자체를 올리고 내립니다. 음수(-)를 넣으면 카메라가 내려가서 맵이 화면 위쪽으로 올라갑니다.")]
+    public float isometricScreenYOffset = -4f;
     
     private float _currentIsometricYaw = 0f;
     private float _isometricPitch = 45f;

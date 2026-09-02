@@ -10,6 +10,7 @@ public class UI_Auto_Connector : MonoBehaviour
     public GameObject commandSlotPrefab;
     public GameObject successPanel;
     public TextMeshProUGUI limitText;
+    public GameObject limitBox;
 
     // 게임 중 UI 묶음
     public GameObject inGameUIGroup;
@@ -109,7 +110,8 @@ public class UI_Auto_Connector : MonoBehaviour
             commandSlotPrefab,
             successPanel,
             limitText,
-            inGameUIGroup
+            inGameUIGroup,
+            limitBox
         );
 
         // 3. (★ 핵심) 3인칭 카메라에게 "이 플레이어를 따라가!"라고 알려주기

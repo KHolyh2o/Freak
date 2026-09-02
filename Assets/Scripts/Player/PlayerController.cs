@@ -31,12 +31,16 @@ public class PlayerController : MonoBehaviour
     private List<List<CommandBlock>> functionLists = new List<List<CommandBlock>>();
 
     // --- UI 참조 ---
-    private GameObject commandSequencePanel;
-    private GameObject[] functionPanels;
+    [Header("커맨드 패널 UI")]
+    public GameObject commandSequencePanel;
+    public GameObject[] functionPanels; // F1, F2, F3 패널
+    
+    // --- UI 연동 ---
     private GameObject commandSlotPrefab;
     private GameObject successPanel;
     private TextMeshProUGUI limitText;
     private GameObject inGameUIGroup;
+    private GameObject limitBox;
 
     // --- 아이콘 스프라이트 ---
     [Header("아이콘 스프라이트")]
@@ -93,6 +97,12 @@ public class PlayerController : MonoBehaviour
     public float turnDuration = 0.3f;
     public float bumpForce = 0.2f;
     public float bumpDuration = 0.15f;
+
+    [Header("패널 슬라이드 애니메이션")]
+    public float panelSlideOffset = 80f;
+    public float panelSlideSpeed = 10f;
+    private bool isPanelsUp = true;
+    private System.Collections.Generic.Dictionary<GameObject, float> panelOriginalY = new System.Collections.Generic.Dictionary<GameObject, float>();
 
     // --- 감지 및 제한 설정 ---
     [Header("감지 및 제한 설정")]
@@ -213,15 +223,60 @@ public class PlayerController : MonoBehaviour
 #endif
     }
 
-    public void InitializeUI(GameObject mainPanel, GameObject[] functionPnls, GameObject slotPrefab, GameObject successPnl, TextMeshProUGUI limitTxt, GameObject inGameUI)
+    private GameObject GetPanelRoot(GameObject panelObj)
     {
-        this.commandSequencePanel = mainPanel;
-        this.functionPanels = functionPnls;
+        if (panelObj == null) return null;
+        // Content를 할당했든 최상위 패널을 할당했든, ScrollRect가 있는 오브젝트가 진짜 패널입니다.
+        UnityEngine.UI.ScrollRect scroll = panelObj.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+        if (scroll != null) return scroll.gameObject;
+        return panelObj;
+    }
+
+    public void InitializeUI(GameObject mainPanel, GameObject[] functionPnls, GameObject slotPrefab, GameObject successPnl, TextMeshProUGUI limitTxt, GameObject inGameUI, GameObject limitBox = null)
+    {
+        if (this.commandSequencePanel == null) this.commandSequencePanel = mainPanel;
+        if (this.functionPanels == null || this.functionPanels.Length == 0) this.functionPanels = functionPnls;
+        
         this.commandSlotPrefab = slotPrefab;
         this.successPanel = successPnl;
         this.limitText = limitTxt;
         this.inGameUIGroup = inGameUI;
-        // ... (rest of method if needed, but tool replaces contiguous block)
+        this.limitBox = limitBox;
+
+        if (limitText != null)
+        {
+            RectTransform rt = limitText.GetComponent<RectTransform>();
+            if (rt != null) panelOriginalY[limitText.gameObject] = rt.anchoredPosition.y;
+        }
+
+        if (limitBox != null)
+        {
+            RectTransform rt = limitBox.GetComponent<RectTransform>();
+            if (rt != null) panelOriginalY[limitBox] = rt.anchoredPosition.y;
+        }
+
+        if (commandSequencePanel != null)
+        {
+            GameObject root = GetPanelRoot(commandSequencePanel);
+            RectTransform rt = root.GetComponent<RectTransform>();
+            if (rt != null) panelOriginalY[root] = rt.anchoredPosition.y;
+        }
+        
+        if (functionPanels != null)
+        {
+            foreach (var p in functionPanels)
+            {
+                if (p != null)
+                {
+                    GameObject root = GetPanelRoot(p);
+                    RectTransform rt = root.GetComponent<RectTransform>();
+                    if (rt != null) panelOriginalY[root] = rt.anchoredPosition.y;
+                }
+            }
+        }
+        
+        isPanelsUp = true;
+        SnapPanelsToTarget();
 
         if (commandSlotPrefab != null)
         {
@@ -230,6 +285,44 @@ public class PlayerController : MonoBehaviour
         }
 
         ResetPlayer();
+    }
+
+    private void SnapPanelsToTarget()
+    {
+        float offset = isPanelsUp ? panelSlideOffset : 0f;
+        foreach (var kvp in panelOriginalY)
+        {
+            if (kvp.Key == null) continue;
+            RectTransform rt = kvp.Key.GetComponent<RectTransform>();
+            if (rt == null) continue;
+            
+            Vector2 pos = rt.anchoredPosition;
+            pos.y = kvp.Value + offset;
+            rt.anchoredPosition = pos;
+        }
+    }
+
+    private void Update()
+    {
+        UpdatePanelSlide();
+    }
+
+    private void UpdatePanelSlide()
+    {
+        if (panelOriginalY.Count == 0) return;
+        float targetOffset = isPanelsUp ? panelSlideOffset : 0f;
+
+        foreach (var kvp in panelOriginalY)
+        {
+            if (kvp.Key == null) continue;
+            RectTransform rt = kvp.Key.GetComponent<RectTransform>();
+            if (rt == null) continue;
+            
+            Vector2 pos = rt.anchoredPosition;
+            float targetY = kvp.Value + targetOffset;
+            pos.y = Mathf.Lerp(pos.y, targetY, Time.deltaTime * panelSlideSpeed);
+            rt.anchoredPosition = pos;
+        }
     }
 
     // ---------------------------------------------------------
@@ -252,6 +345,7 @@ public class PlayerController : MonoBehaviour
 
     private void TryAddCommand(CommandBlock block)
     {
+        isPanelsUp = false;
         if (isExecuting) return;
 
         List<CommandBlock> targetList = GetActiveList();
@@ -287,6 +381,17 @@ public class PlayerController : MonoBehaviour
 
     public void SetActivePanel(int panelIndex)
     {
+        if (activeListIndex == panelIndex)
+        {
+            // 이미 활성화된 패널의 탭을 다시 누른 경우
+            isPanelsUp = !isPanelsUp;
+        }
+        else
+        {
+            // 다른 탭을 누른 경우 내림
+            isPanelsUp = false;
+        }
+
         activeListIndex = panelIndex;
         insertIndex = -1; // 패널이 바뀌면 삽입 지점 초기화
         RefreshAllPanels();
@@ -449,6 +554,16 @@ public class PlayerController : MonoBehaviour
         
         if (successPanel != null) successPanel.SetActive(false);
         if (inGameUIGroup != null) inGameUIGroup.SetActive(true);
+        if (commandSequencePanel != null) commandSequencePanel.SetActive(true);
+        if (limitText != null) limitText.gameObject.SetActive(true);
+        if (limitBox != null) limitBox.SetActive(true);
+        if (functionPanels != null)
+        {
+            foreach (var p in functionPanels)
+            {
+                if (p != null) p.SetActive(true);
+            }
+        }
     }
 
     // ---------------------------------------------------------
@@ -651,6 +766,16 @@ public class PlayerController : MonoBehaviour
             SoundManager.Instance?.PlaySuccess();
             if (successPanel != null) successPanel.SetActive(true);
             if (inGameUIGroup != null) inGameUIGroup.SetActive(false);
+            if (commandSequencePanel != null) commandSequencePanel.SetActive(false);
+            if (limitText != null) limitText.gameObject.SetActive(false);
+            if (limitBox != null) limitBox.SetActive(false);
+            if (functionPanels != null)
+            {
+                foreach (var p in functionPanels)
+                {
+                    if (p != null) p.SetActive(false);
+                }
+            }
 
             MapEditor mapEditor = FindObjectOfType<MapEditor>();
             if (mapEditor != null)
@@ -1064,6 +1189,7 @@ public class PlayerController : MonoBehaviour
 
         if (hitPanel != null)
         {
+            isPanelsUp = false;
             GameObject targetPanel = activeListIndex == -1 ? commandSequencePanel : functionPanels[activeListIndex];
             int listIndex = GetListIndexByPanel(targetPanel);
             Debug.Log($"[DragDrop] listIndex: {listIndex}");

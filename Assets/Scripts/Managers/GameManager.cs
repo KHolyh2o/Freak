@@ -64,4 +64,34 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
+
+    // 다음 스테이지로 이동 (다음 스테이지 버튼용)
+    public void NextStage()
+    {
+        Time.timeScale = 1f;
+        // 현재 스테이지 인덱스를 가져와서 1 증가 (0이 Stage 1)
+        int currentStage = PlayerPrefs.GetInt("SelectedStage", 0);
+        PlayerPrefs.SetInt("SelectedStage", currentStage + 1);
+        PlayerPrefs.Save();
+        
+        // 현재 Play 씬을 다시 로드하면 TestMapLoader가 새로 바뀐 SelectedStage 값을 읽어 다음 맵을 생성함
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    // 메인(또는 스테이지 선택) 화면으로 이동
+    public void GoToMain()
+    {
+        Time.timeScale = 1f;
+        
+        // 쇼룸에서 들어온 경우 다시 쇼룸으로 돌려보내는 로직 (SceneController와 동일)
+        if (PlayerPrefs.GetInt("ReturnToShowroom", 0) == 1)
+        {
+            SceneManager.LoadScene("MuseumHub"); 
+        }
+        else
+        {
+            // 실제 씬 이름인 "main"으로 변경
+            SceneManager.LoadScene("main"); 
+        }
+    }
 }

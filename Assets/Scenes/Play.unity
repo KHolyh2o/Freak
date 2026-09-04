@@ -130,6 +130,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 338478703563222633, guid: 8dc5f4146987f994980c0aaf110215e8, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 675229759035056057, guid: 8dc5f4146987f994980c0aaf110215e8, type: 3}
       propertyPath: m_Name
       value: GameUI_Canvas
@@ -709,6 +713,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+--- !u!114 &1525770600 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1954265517339364837, guid: 8dc5f4146987f994980c0aaf110215e8, type: 3}
+  m_PrefabInstance: {fileID: 220898278}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1657380069
 GameObject:
   m_ObjectHideFlags: 0
@@ -753,8 +768,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9e688df75edef4ea28beb631d7aa9905, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiKey: 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
-  modelName: meta/llama-3.1-70b-instruct
+  apiKey: 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
+  modelName: nvidia/llama-3.1-nemotron-70b-instruct
 --- !u!114 &1657380072
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -801,6 +816,12 @@ MonoBehaviour:
   messageText: {fileID: 220898281}
   practiceButton: {fileID: 220898280}
   closeButton: {fileID: 220898279}
+  loadingImage: {fileID: 1525770600}
+  loadingSprites:
+  - {fileID: 21300000, guid: 73f334b9aecd142a2a446ec60bbeb638, type: 3}
+  - {fileID: 21300000, guid: 45d4237c83b2e48938aecaff43f0d18c, type: 3}
+  - {fileID: 21300000, guid: 5d4c1b5dc528344989930afe47d2763f, type: 3}
+  loadingAnimSpeed: 0.5
 --- !u!1 &1793150787
 GameObject:
   m_ObjectHideFlags: 0

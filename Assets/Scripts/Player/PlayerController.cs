@@ -1325,4 +1325,19 @@ public class PlayerController : MonoBehaviour
             }
         }
     }
+    
+    public void ToggleUIVisibility(bool isVisible)
+    {
+        if (inGameUIGroup != null) inGameUIGroup.SetActive(isVisible);
+        if (commandSequencePanel != null) commandSequencePanel.SetActive(isVisible);
+        if (limitText != null) limitText.gameObject.SetActive(isVisible);
+        if (limitBox != null) limitBox.SetActive(isVisible);
+        if (functionPanels != null)
+        {
+            foreach (var p in functionPanels)
+            {
+                if (p != null) p.SetActive(isVisible);
+            }
+        }
+    }
 }

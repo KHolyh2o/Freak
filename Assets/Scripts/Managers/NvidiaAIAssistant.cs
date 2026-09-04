@@ -12,10 +12,13 @@ public class NvidiaAIAssistant : MonoBehaviour
     [Tooltip("Enter your NVIDIA NIM API Key here")]
     public string apiKey = "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";
     private string apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
-    public string modelName = "meta/llama-3.1-70b-instruct";
+    public string modelName = "nvidia/llama-3.1-nemotron-70b-instruct";
 
     private void Awake()
     {
+        // 씬이나 인스펙터에 잘못 저장된 옛날 값을 강제로 무시하고 항상 최신 모델을 사용하도록 덮어씁니다.
+        modelName = "nvidia/nemotron-3-ultra-550b-a55b";
+        
         if (Instance == null)
         {
             Instance = this;

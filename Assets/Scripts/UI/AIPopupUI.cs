@@ -13,6 +13,12 @@ public class AIPopupUI : MonoBehaviour
     public Button practiceButton;
     public Button closeButton;
 
+    [Header("Loading Animation")]
+    public Image loadingImage;
+    public Sprite[] loadingSprites;
+    public float loadingAnimSpeed = 0.5f;
+    private Coroutine loadingAnimCoroutine;
+
     private string currentMissingSkill;
     private Coroutine typingCoroutine;
 
@@ -35,14 +41,38 @@ public class AIPopupUI : MonoBehaviour
 
     public void ShowLoading()
     {
+        // 로딩 중에는 패널 배경을 숨깁니다.
         if (popupPanel != null)
-            popupPanel.SetActive(true);
+            popupPanel.SetActive(false);
+            
+        var player = FindObjectOfType<PlayerController>();
+        if (player != null) player.ToggleUIVisibility(false);
         
         if (practiceButton != null) practiceButton.gameObject.SetActive(false);
         if (closeButton != null) closeButton.gameObject.SetActive(false);
 
         if (typingCoroutine != null) StopCoroutine(typingCoroutine);
-        messageText.text = "AI 어시스턴트가 분석 중입니다...";
+        
+        // 텍스트를 숨기고 로딩 이미지를 보여주며 애니메이션 시작
+        if (messageText != null) messageText.gameObject.SetActive(false);
+        if (loadingImage != null)
+        {
+            loadingImage.gameObject.SetActive(true);
+            if (loadingAnimCoroutine != null) StopCoroutine(loadingAnimCoroutine);
+            loadingAnimCoroutine = StartCoroutine(AnimateLoadingSprites());
+        }
+    }
+
+    private IEnumerator AnimateLoadingSprites()
+    {
+        if (loadingSprites == null || loadingSprites.Length == 0) yield break;
+        int index = 0;
+        while (true)
+        {
+            if (loadingImage != null) loadingImage.sprite = loadingSprites[index];
+            index = (index + 1) % loadingSprites.Length;
+            yield return new WaitForSeconds(loadingAnimSpeed);
+        }
     }
 
     public void ShowMessage(string message, string missingSkill)
@@ -51,12 +81,23 @@ public class AIPopupUI : MonoBehaviour
 
         if (popupPanel != null)
             popupPanel.SetActive(true);
+            
+        var player = FindObjectOfType<PlayerController>();
+        if (player != null) player.ToggleUIVisibility(false);
         
         if (practiceButton != null) practiceButton.gameObject.SetActive(true);
         if (closeButton != null) closeButton.gameObject.SetActive(true);
 
-        if (typingCoroutine != null) StopCoroutine(typingCoroutine);
-        typingCoroutine = StartCoroutine(TypeText(message));
+        // 로딩 애니메이션 중지 및 숨기기
+        if (loadingAnimCoroutine != null) StopCoroutine(loadingAnimCoroutine);
+        if (loadingImage != null) loadingImage.gameObject.SetActive(false);
+        
+        if (messageText != null)
+        {
+            messageText.gameObject.SetActive(true);
+            if (typingCoroutine != null) StopCoroutine(typingCoroutine);
+            typingCoroutine = StartCoroutine(TypeText(message));
+        }
     }
 
     private IEnumerator TypeText(string message)
@@ -73,6 +114,9 @@ public class AIPopupUI : MonoBehaviour
     {
         if (popupPanel != null)
             popupPanel.SetActive(false);
+            
+        var player = FindObjectOfType<PlayerController>();
+        if (player != null) player.ToggleUIVisibility(true);
 
         if (PracticeMapGenerator.Instance != null)
         {
@@ -88,6 +132,9 @@ public class AIPopupUI : MonoBehaviour
     {
         if (popupPanel != null)
             popupPanel.SetActive(false);
+            
+        var player = FindObjectOfType<PlayerController>();
+        if (player != null) player.ToggleUIVisibility(true);
             
         // 거절했으므로 카운트를 리셋하여 다시 시도할 수 있게 해줌
         if (AIManager.Instance != null)

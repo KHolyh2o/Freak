@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Video;
 using UnityEngine.SceneManagement;
@@ -6,6 +7,10 @@ public class IntroVideoPlayer : MonoBehaviour
 {
     public VideoPlayer videoPlayer;
     public string nextSceneName = "main"; // 영상이 끝나면 넘어갈 씬 이름
+    
+    [Header("설정")]
+    [Tooltip("영상이 시작되기 전 대기하는 시간(초)")]
+    public float delayBeforePlay = 0.5f;
 
     void Start()
     {
@@ -17,11 +22,22 @@ public class IntroVideoPlayer : MonoBehaviour
         {
             // 영상 재생이 끝났을 때(loopPointReached) OnVideoEnd 함수를 실행하도록 등록합니다.
             videoPlayer.loopPointReached += OnVideoEnd;
+            
+            // 지정된 시간(delayBeforePlay) 뒤에 영상 재생을 시작합니다.
+            Invoke("PlayVideo", delayBeforePlay);
         }
         else
         {
             Debug.LogWarning("VideoPlayer 컴포넌트가 없습니다! 바로 다음 씬으로 이동합니다.");
             LoadNextScene();
+        }
+    }
+    
+    void PlayVideo()
+    {
+        if (videoPlayer != null)
+        {
+            videoPlayer.Play();
         }
     }
 
@@ -42,6 +58,9 @@ public class IntroVideoPlayer : MonoBehaviour
 
     void LoadNextScene()
     {
+        // 혹시 대기 중에 스킵했을 경우를 대비해 예약된 재생 취소
+        CancelInvoke("PlayVideo");
+        
         // 이벤트 연결을 해제하고 다음 씬으로 넘어갑니다.
         if (videoPlayer != null)
             videoPlayer.loopPointReached -= OnVideoEnd;
@@ -49,3 +68,4 @@ public class IntroVideoPlayer : MonoBehaviour
         SceneManager.LoadScene(nextSceneName);
     }
 }
+

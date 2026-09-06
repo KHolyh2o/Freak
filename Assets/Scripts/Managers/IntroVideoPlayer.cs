@@ -20,6 +20,16 @@ public class IntroVideoPlayer : MonoBehaviour
 
         if (videoPlayer != null)
         {
+            // 맥(16:10) 등 비율이 다른 모니터에서도 16:9 영상 비율이 찌그러지지 않고 유지되도록 설정 (FitInside)
+            videoPlayer.aspectRatio = VideoAspectRatio.FitInside;
+            
+            // 영상 위아래에 남는 공간(레터박스)으로 뒤의 스카이박스가 보이지 않도록 메인 카메라 배경을 검은색으로 덮습니다.
+            if (Camera.main != null)
+            {
+                Camera.main.clearFlags = CameraClearFlags.SolidColor;
+                Camera.main.backgroundColor = Color.black;
+            }
+
             // 영상 재생이 끝났을 때(loopPointReached) OnVideoEnd 함수를 실행하도록 등록합니다.
             videoPlayer.loopPointReached += OnVideoEnd;
             

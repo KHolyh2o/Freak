@@ -58,7 +58,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 1990b555bc8eb62439abddb836250528, type: 2}
     - target: {fileID: 919132149155446097, guid: 05138b84af6bf75488778926e17e2fca, type: 3}
       propertyPath: m_Name
-      value: stone
+      value: Rock
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 05138b84af6bf75488778926e17e2fca, type: 3}
       propertyPath: m_TagString

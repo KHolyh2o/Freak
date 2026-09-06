@@ -7,14 +7,25 @@ public class CameraSwitcher : MonoBehaviour
     [Header("카메라 설정")]
     public Camera[] cameras; // 0: 쿼터뷰(고정), 1: 탑뷰, 2: 3인칭(메인)
     // index 2번을 무조건 메인(3인칭)으로 고정합니다. (Inspector 설정 실수 방지)
-    [Header("0번 카메라(쿼터뷰) 회전 설정")]
+    [Header("0번 카메라(쿼터뷰) 드래그 설정")]
     public Transform isometricTarget; // 회전 중심축 (비워두면 카메라가 바라보는 땅이 축이 됨)
     public float isometricDragSpeed = 250f; // 좌우 드래그 회전 속도
     public int dragMouseButton = 0; // 0: 좌클릭, 1: 우클릭, 2: 휠클릭
-    [Header("쿼터뷰(0번) 오프셋 설정")]
+
+    [Header("상하 드래그 (높이) 설정")]
+    public float isometricHeightDragSpeed = 30f; // 세로 드래그 시 높이 조절 속도
+    public float isometricMinYOffset = -25f; // 맵 하단 제한
+    public float isometricMaxYOffset = 15f; // 맵 상단 제한
+    public float dragThreshold = 10f; // 드래그 방향을 판별하기 위한 최소 이동 거리(픽셀)
+
+    [Header("쿼터뷰(0번) 초기 오프셋 설정")]
     [Tooltip("화면에서 맵이 더 위/아래에 위치하도록 렌즈 자체를 올리고 내립니다. 음수(-)를 넣으면 카메라가 내려가서 맵이 화면 위쪽으로 올라갑니다.")]
     public float isometricScreenYOffset = -4f;
     
+    private enum DragMode { None, Determining, Horizontal, Vertical }
+    private DragMode _currentDragMode = DragMode.None;
+    private Vector2 _dragAccumulator = Vector2.zero;
+
     private float _currentIsometricYaw = 0f;
     private float _isometricPitch = 45f;
     private float _isometricDistance = 20f;
@@ -222,94 +233,124 @@ public class CameraSwitcher : MonoBehaviour
         return tpf != null;
     }
 
+    private bool IsPointerOverUI()
+    {
+        if (UnityEngine.EventSystems.EventSystem.current == null) return false;
+        
+        Vector2 pos = Input.mousePosition;
+        if (Input.touchCount > 0) pos = Input.GetTouch(0).position;
+
+        var pointerData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+        {
+            position = pos
+        };
+        var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+        UnityEngine.EventSystems.EventSystem.current.RaycastAll(pointerData, results);
+
+        foreach (var hit in results)
+        {
+            // 스크롤뷰 체크 (실제 스크롤 가능한 UI인지)
+            var scrollRect = hit.gameObject.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+            if (scrollRect != null && scrollRect.content != null && scrollRect.viewport != null)
+            {
+                if (scrollRect.content.rect.height > scrollRect.viewport.rect.height || 
+                    scrollRect.content.rect.width > scrollRect.viewport.rect.width)
+                {
+                    return true;
+                }
+            }
+            
+            // 커맨드 드래그 소스/슬롯 체크 (UI 조작 시 카메라 회전/이동 무시)
+            if (hit.gameObject.GetComponentInParent<CommandDragSource>() != null || 
+                hit.gameObject.GetComponentInParent<SlotDragHandler>() != null)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void HandleIsometricDrag()
     {
         if (Input.GetMouseButtonDown(dragMouseButton))
         {
-            bool isOverScrollView = false;
-            
-            if (UnityEngine.EventSystems.EventSystem.current != null)
-            {
-                var pointerData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
-                {
-                    position = Input.mousePosition
-                };
-                var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
-                UnityEngine.EventSystems.EventSystem.current.RaycastAll(pointerData, results);
-
-                foreach (var hit in results)
-                {
-                    // 클릭한 UI가 ScrollRect(스크롤 뷰) 내부의 요소인지 확인
-                    var scrollRect = hit.gameObject.GetComponentInParent<UnityEngine.UI.ScrollRect>();
-                    if (scrollRect != null)
-                    {
-                        // 3개가 켜져서 '실제로 스크롤이 가능해진 상황'인지 확인 (Content 높이 > Viewport 높이)
-                        if (scrollRect.content != null && scrollRect.viewport != null)
-                        {
-                            if (scrollRect.content.rect.height > scrollRect.viewport.rect.height || 
-                                scrollRect.content.rect.width > scrollRect.viewport.rect.width)
-                            {
-                                isOverScrollView = true;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // 커맨드 버튼(드래그 소스) 위에서 드래그를 시작한 경우도 카메라 회전 무시
-                    if (hit.gameObject.GetComponentInParent<CommandDragSource>() != null)
-                    {
-                        isOverScrollView = true;
-                        break;
-                    }
-                }
-            }
-
-            if (isOverScrollView)
+            if (IsPointerOverUI())
             {
                 _isDraggingCamera = false;
+                _currentDragMode = DragMode.None;
             }
             else
             {
                 _isDraggingCamera = true;
                 _previousMousePos = Input.mousePosition;
+                _currentDragMode = DragMode.Determining;
+                _dragAccumulator = Vector2.zero;
             }
         }
         else if (Input.GetMouseButton(dragMouseButton) && _isDraggingCamera)
         {
-            Vector3 mouseDelta = Input.mousePosition - _previousMousePos;
-            
-            // 화면 해상도에 비례하도록 정규화하여 회전 각도 산출
-            float dragAmount = mouseDelta.x / Screen.width; 
-            _currentIsometricYaw += dragAmount * isometricDragSpeed;
-            
-            _previousMousePos = Input.mousePosition;
+            Vector3 mousePos = Input.mousePosition;
+            Vector3 mouseDelta = mousePos - _previousMousePos;
+            _previousMousePos = mousePos;
 
-            // 계산된 새로운 각도 (피치는 고정)
-            Quaternion rotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
-            
-            // 위치 지정: 중앙축(Pivot)에서 설정된 거리(Distance)만큼 뒷통수 방향(-forward)으로 물러난 곳
-            Vector3 targetPos = _isometricPivotPosition + (rotation * Vector3.back) * _isometricDistance;
-            
-            // 화면 상하 쏠림 오프셋 보정
-            targetPos += rotation * Vector3.up * isometricScreenYOffset;
-
-            // 0번 카메라 앵커 본체의 위치와 각도를 최신화 (다음번 카메라 전환 시 이곳을 참조하게 됨)
-            if (cameras[0] != null)
+            // 상태가 판별중일 때 축 방향 결정
+            if (_currentDragMode == DragMode.Determining)
             {
-                cameras[0].transform.position = targetPos;
-                cameras[0].transform.rotation = rotation;
+                _dragAccumulator += new Vector2(Mathf.Abs(mouseDelta.x), Mathf.Abs(mouseDelta.y));
+                
+                if (_dragAccumulator.magnitude > dragThreshold)
+                {
+                    if (_dragAccumulator.x > _dragAccumulator.y)
+                    {
+                        _currentDragMode = DragMode.Horizontal; // 가로축 확정
+                    }
+                    else
+                    {
+                        _currentDragMode = DragMode.Vertical; // 세로축 확정
+                    }
+                }
             }
 
-            // 실제 게임 화면을 표시하는 메인 카메라 즉시 이동
-            if (_mainCam != null)
+            // 확정된 상태에 따라 한 가지 동작만 실행
+            if (_currentDragMode == DragMode.Horizontal)
             {
-                _mainCam.transform.position = targetPos;
-                _mainCam.transform.rotation = rotation;
-
-                // ★ 마우스를 뗐을 때 카메라가 원래 자리(드래그 전 위치)로 돌아가는(Snap) 것을 방지하기 위해 잠금 좌표 갱신
-                _lockedPosition = targetPos;
-                _lockedRotation = rotation;
+                float dragAmount = mouseDelta.x / Screen.width; 
+                _currentIsometricYaw += dragAmount * isometricDragSpeed;
+                ApplyIsometricCameraTransform();
             }
+            else if (_currentDragMode == DragMode.Vertical)
+            {
+                float dragAmount = mouseDelta.y / Screen.height;
+                isometricScreenYOffset -= dragAmount * isometricHeightDragSpeed;
+                isometricScreenYOffset = Mathf.Clamp(isometricScreenYOffset, isometricMinYOffset, isometricMaxYOffset);
+                ApplyIsometricCameraTransform();
+            }
+        }
+        else if (Input.GetMouseButtonUp(dragMouseButton))
+        {
+            _isDraggingCamera = false;
+            _currentDragMode = DragMode.None;
+        }
+    }
+
+    private void ApplyIsometricCameraTransform()
+    {
+        Quaternion rotation = Quaternion.Euler(_isometricPitch, _currentIsometricYaw, 0f);
+        Vector3 targetPos = _isometricPivotPosition + (rotation * Vector3.back) * _isometricDistance;
+        targetPos += rotation * Vector3.up * isometricScreenYOffset;
+
+        if (cameras.Length > 0 && cameras[0] != null)
+        {
+            cameras[0].transform.position = targetPos;
+            cameras[0].transform.rotation = rotation;
+        }
+
+        if (_mainCam != null)
+        {
+            _mainCam.transform.position = targetPos;
+            _mainCam.transform.rotation = rotation;
+            _lockedPosition = targetPos;
+            _lockedRotation = rotation;
         }
     }
 

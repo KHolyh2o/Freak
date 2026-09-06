@@ -77,7 +77,7 @@ public class NvidiaAIAssistant : MonoBehaviour
             ""messages"": [
                 {{
                     ""role"": ""system"",
-                    ""content"": ""너는 어린이 코딩 교육 게임의 친절한 AI 어시스턴트야. 항상 존댓말을 쓰고, 최대한 짧고 다정하게 말해.""
+                    ""content"": ""너는 어린이 코딩 교육 게임의 친절한 AI 어시스턴트야. 항상 존댓말을 쓰고, 최대한 짧고 다정하게 말해. 이모티콘이나 특수 기호(*, #, ~ 등)는 절대 쓰지 말고 오직 한글, 영어, 숫자, 온점, 쉼표, 물음표, 느낌표만 써.""
                 }},
                 {{
                     ""role"": ""user"",
@@ -132,7 +132,10 @@ public class NvidiaAIAssistant : MonoBehaviour
         {
             // 이스케이프된 문자열 처리 (\n, \", 등)
             string text = match.Groups[1].Value;
-            text = text.Replace("\\n", "\n").Replace("\\\"", "\"");
+            text = text.Replace("\\n", "\n").Replace("\\\"", "\"").Replace("\\r", "").Replace("\r", "");
+            
+            // 이모지(Surrogate 쌍) 및 흔히 깨지는 특수기호 강제 제거
+            text = Regex.Replace(text, @"[\uD800-\uDFFF]", ""); // 이모지 제거
             return text;
         }
         return "AI 응답을 해석할 수 없습니다.";

@@ -102,7 +102,7 @@ public class PlayerController : MonoBehaviour
     public float panelSlideOffset = 80f;
     public float panelSlideSpeed = 10f;
     private bool isPanelsUp = true;
-    private System.Collections.Generic.Dictionary<GameObject, float> panelOriginalY = new System.Collections.Generic.Dictionary<GameObject, float>();
+    private System.Collections.Generic.Dictionary<GameObject, Vector2> panelOriginalPos = new System.Collections.Generic.Dictionary<GameObject, Vector2>();
 
     // --- 감지 및 제한 설정 ---
     [Header("감지 및 제한 설정")]
@@ -246,20 +246,20 @@ public class PlayerController : MonoBehaviour
         if (limitText != null)
         {
             RectTransform rt = limitText.GetComponent<RectTransform>();
-            if (rt != null) panelOriginalY[limitText.gameObject] = rt.anchoredPosition.y;
+            if (rt != null) panelOriginalPos[limitText.gameObject] = rt.anchoredPosition;
         }
 
         if (limitBox != null)
         {
             RectTransform rt = limitBox.GetComponent<RectTransform>();
-            if (rt != null) panelOriginalY[limitBox] = rt.anchoredPosition.y;
+            if (rt != null) panelOriginalPos[limitBox] = rt.anchoredPosition;
         }
 
         if (commandSequencePanel != null)
         {
             GameObject root = GetPanelRoot(commandSequencePanel);
             RectTransform rt = root.GetComponent<RectTransform>();
-            if (rt != null) panelOriginalY[root] = rt.anchoredPosition.y;
+            if (rt != null) panelOriginalPos[root] = rt.anchoredPosition;
         }
         
         if (functionPanels != null)
@@ -270,7 +270,7 @@ public class PlayerController : MonoBehaviour
                 {
                     GameObject root = GetPanelRoot(p);
                     RectTransform rt = root.GetComponent<RectTransform>();
-                    if (rt != null) panelOriginalY[root] = rt.anchoredPosition.y;
+                    if (rt != null) panelOriginalPos[root] = rt.anchoredPosition;
                 }
             }
         }
@@ -290,15 +290,23 @@ public class PlayerController : MonoBehaviour
     private void SnapPanelsToTarget()
     {
         float offset = isPanelsUp ? panelSlideOffset : 0f;
-        foreach (var kvp in panelOriginalY)
+        foreach (var kvp in panelOriginalPos)
         {
             if (kvp.Key == null) continue;
             RectTransform rt = kvp.Key.GetComponent<RectTransform>();
             if (rt == null) continue;
             
-            Vector2 pos = rt.anchoredPosition;
-            pos.y = kvp.Value + offset;
-            rt.anchoredPosition = pos;
+            Vector2 targetPos = kvp.Value;
+            if (isPanelsUp && (kvp.Key == limitBox || (limitText != null && kvp.Key == limitText.gameObject)))
+            {
+                targetPos = new Vector2(0f, kvp.Value.y + 40f);
+            }
+            else
+            {
+                targetPos.y += offset;
+            }
+            
+            rt.anchoredPosition = targetPos;
         }
     }
 
@@ -309,18 +317,28 @@ public class PlayerController : MonoBehaviour
 
     private void UpdatePanelSlide()
     {
-        if (panelOriginalY.Count == 0) return;
+        if (panelOriginalPos.Count == 0) return;
         float targetOffset = isPanelsUp ? panelSlideOffset : 0f;
 
-        foreach (var kvp in panelOriginalY)
+        foreach (var kvp in panelOriginalPos)
         {
             if (kvp.Key == null) continue;
             RectTransform rt = kvp.Key.GetComponent<RectTransform>();
             if (rt == null) continue;
             
             Vector2 pos = rt.anchoredPosition;
-            float targetY = kvp.Value + targetOffset;
-            pos.y = Mathf.Lerp(pos.y, targetY, Time.deltaTime * panelSlideSpeed);
+            Vector2 targetPos = kvp.Value;
+            
+            if (isPanelsUp && (kvp.Key == limitBox || (limitText != null && kvp.Key == limitText.gameObject)))
+            {
+                targetPos = new Vector2(0f, kvp.Value.y + 40f);
+            }
+            else
+            {
+                targetPos.y += targetOffset;
+            }
+            
+            pos = Vector2.Lerp(pos, targetPos, Time.deltaTime * panelSlideSpeed);
             rt.anchoredPosition = pos;
         }
     }

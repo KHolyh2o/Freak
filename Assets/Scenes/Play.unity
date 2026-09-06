@@ -818,9 +818,9 @@ MonoBehaviour:
   closeButton: {fileID: 220898279}
   loadingImage: {fileID: 1525770600}
   loadingSprites:
-  - {fileID: 21300000, guid: 73f334b9aecd142a2a446ec60bbeb638, type: 3}
-  - {fileID: 21300000, guid: 45d4237c83b2e48938aecaff43f0d18c, type: 3}
-  - {fileID: 21300000, guid: 5d4c1b5dc528344989930afe47d2763f, type: 3}
+  - {fileID: 21300000, guid: a513e158bf41a428f9cd9f4bb69b2955, type: 3}
+  - {fileID: 21300000, guid: 60657dc8dd666470783850c655c94836, type: 3}
+  - {fileID: 21300000, guid: f5817addd62f54078b9c5d4403fa42c4, type: 3}
   loadingAnimSpeed: 0.5
 --- !u!1 &1793150787
 GameObject:

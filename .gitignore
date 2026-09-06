@@ -106,3 +106,7 @@ Freak_macOS.app/
 # macOS system files
 .DS_Store
 **/.DS_Store
+
+# Secret API Keys
+Assets/Resources/Config/API_Key.txt
+Assets/Resources/Config/API_Key.txt.meta

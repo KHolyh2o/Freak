@@ -9,8 +9,9 @@ public class NvidiaAIAssistant : MonoBehaviour
     public static NvidiaAIAssistant Instance { get; private set; }
 
     [Header("API Settings")]
-    [Tooltip("Enter your NVIDIA NIM API Key here")]
-    public string apiKey = "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";
+    [Tooltip("NVIDIA API 설정")]
+    // ⚠️ 경고: 깃허브에 코드를 올릴 때는 절대 여기에 API 키를 직접 적어두지 마세요!
+    public string apiKey = "";
     private string apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
     public string modelName = "nvidia/llama-3.1-nemotron-70b-instruct";
 
@@ -18,6 +19,18 @@ public class NvidiaAIAssistant : MonoBehaviour
     {
         // 씬이나 인스펙터에 잘못 저장된 옛날 값을 강제로 무시하고 항상 최신 모델을 사용하도록 덮어씁니다.
         modelName = "nvidia/nemotron-3-ultra-550b-a55b";
+        
+        // 로컬 설정 파일에서 API 키 불러오기 (Assets/Resources/Config/API_Key.txt)
+        TextAsset keyFile = Resources.Load<TextAsset>("Config/API_Key");
+        if (keyFile != null && !string.IsNullOrWhiteSpace(keyFile.text))
+        {
+            // 메모장에 적힌 키 양옆의 공백이나 줄바꿈을 제거하고 적용
+            apiKey = keyFile.text.Trim();
+        }
+        else if (string.IsNullOrEmpty(apiKey))
+        {
+            Debug.LogWarning("[NvidiaAIAssistant] API 키를 찾을 수 없습니다. Assets/Resources/Config/API_Key.txt 파일에 키를 입력해 주세요.");
+        }
         
         if (Instance == null)
         {

@@ -33,6 +33,7 @@ public class SettingsUI : MonoBehaviour
     [Header("Action Buttons")]
     public Button confirmButton;
     public Button mainButton;
+    public Button quitButton;
 
     private void Start()
     {
@@ -85,6 +86,33 @@ public class SettingsUI : MonoBehaviour
         {
             mainButton.onClick.AddListener(OnMainButtonClicked);
             AddHoverEffect(mainButton.gameObject);
+        }
+
+        if (quitButton != null)
+        {
+            quitButton.onClick.AddListener(OnQuitButtonClicked);
+            AddHoverEffect(quitButton.gameObject);
+        }
+
+        UpdateButtonVisibility();
+    }
+
+    public void UpdateButtonVisibility()
+    {
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        
+        // 1. Play 씬일 때는 '메인으로 이동' 활성화
+        // 2. 그 외의 씬 (main, 스테이지 선택 씬 등) 에서는 '게임 종료' 활성화
+        bool isPlayScene = (sceneName == "Play");
+
+        if (mainButton != null)
+        {
+            mainButton.gameObject.SetActive(isPlayScene);
+        }
+        
+        if (quitButton != null)
+        {
+            quitButton.gameObject.SetActive(!isPlayScene);
         }
     }
 
@@ -148,6 +176,17 @@ public class SettingsUI : MonoBehaviour
         SoundManager.Instance?.PlayCommandClick();
         // 메인 씬으로 돌아가는 로직
         // UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenuScene"); 
+    }
+
+    private void OnQuitButtonClicked()
+    {
+        SoundManager.Instance?.PlayCommandClick();
+        Debug.Log("[SettingsUI] 게임 종료 요청");
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     // 마우스를 올렸을 때 버튼이 눌릴 것임을 표시하기 위한 호버 이펙트 (약간 어두워지거나 크기 변경)

@@ -35,6 +35,36 @@ public class SettingsManager : MonoBehaviour
         isAISupportEnabled = PlayerPrefs.GetInt(PREF_AISUPPORT, 1) == 1;
     }
 
+    private void Update()
+    {
+        // 글로벌 ESC 키 감지 (Play 씬 제외 - Play 씬은 GameManager가 담당)
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (sceneName != "Play")
+            {
+                // 꺼져 있는 UI까지 찾아옴
+                SettingsUI[] uis = Resources.FindObjectsOfTypeAll<SettingsUI>();
+                foreach (var ui in uis)
+                {
+                    // 에셋(프리팹)이 아닌 씬에 존재하는 객체만 조작
+                    if (ui.gameObject.scene.isLoaded)
+                    {
+                        bool isActive = ui.gameObject.activeSelf;
+                        ui.gameObject.SetActive(!isActive);
+
+                        if (!isActive)
+                        {
+                            SoundManager.Instance?.PlayCommandClick();
+                            ui.UpdateButtonVisibility();
+                        }
+                        break; // 하나만 조작하고 종료
+                    }
+                }
+            }
+        }
+    }
+
     public void ApplySettings()
     {
         // 1. 볼륨 적용
@@ -43,12 +73,13 @@ public class SettingsManager : MonoBehaviour
         // 2. 화면 모드 적용
         if (isFullScreen)
         {
-            Screen.SetResolution(Screen.currentResolution.width, Screen.currentResolution.height, FullScreenMode.FullScreenWindow);
+            // 강제로 1920x1080 (16:9) 해상도의 전용 전체화면 모드로 설정
+            Screen.SetResolution(1920, 1080, FullScreenMode.ExclusiveFullScreen);
         }
         else
         {
-            // 창 모드 기본 해상도 (1920x1080)
-            Screen.SetResolution(1920, 1080, FullScreenMode.Windowed);
+            // 창 모드일 때는 화면에 쏙 들어오는 작은 16:9 비율 (1280x720)로 설정
+            Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
         }
     }
 

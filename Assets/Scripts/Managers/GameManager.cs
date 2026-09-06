@@ -21,11 +21,14 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // ESC 키 입력 감지 -> 퍼즈 토글
-        if (Input.GetKeyDown(KeyCode.Escape))
+        // Play 씬에서만 GameManager가 인게임 퍼즈/UI 토글을 담당
+        if (SceneManager.GetActiveScene().name == "Play")
         {
-            if (isPaused) ResumeGame();
-            else PauseGame();
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (isPaused) ResumeGame();
+                else PauseGame();
+            }
         }
     }
 

@@ -103,26 +103,21 @@ public class StageSelectUI : MonoBehaviour
             Debug.Log($"[StageSelectUI] 발견된 맵 파일 개수: {totalStages}");
         }
 
-        // Content Panel 아래에 있는 모든 자식 오브젝트를 스테이지 버튼으로 인식
-        if (contentPanel.childCount > 0)
+        // 2. 스크롤 뷰 안에 에디터에서 미리 배치해둔 더미(미리보기용) 버튼이 있다면 전부 삭제합니다.
+        // 이렇게 하면 항상 CSV 파일 개수에 맞춰 새로 100% 자동 생성됩니다.
+        for (int i = contentPanel.childCount - 1; i >= 0; i--)
         {
-            for (int i = 0; i < contentPanel.childCount; i++)
-            {
-                Transform child = contentPanel.GetChild(i);
-                stageButtons.Add(child.GetComponent<RectTransform>());
-
-                int index = i;
-                Button btn = child.GetComponent<Button>();
-                if (btn != null)
-                {
-                    btn.onClick.AddListener(() => OnStageClicked(index));
-                }
-            }
-            totalStages = stageButtons.Count; // 실제 자식 개수로 업데이트 (수동 배치 우선)
+            Destroy(contentPanel.GetChild(i).gameObject);
         }
-        else if (stageButtonPrefab != null) // 자식이 없고 프리팹이 설정되어 있다면 기존 방식대로 생성
+
+        // 3. 버튼 자동 생성
+        if (stageButtonPrefab != null)
         {
             CreateStageButtons(mapFiles);
+        }
+        else
+        {
+            Debug.LogError("[StageSelectUI] Stage Button Prefab이 연결되어 있지 않습니다!");
         }
 
         // 거리 배열 초기화

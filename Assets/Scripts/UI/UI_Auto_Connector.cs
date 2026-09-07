@@ -40,6 +40,13 @@ public class UI_Auto_Connector : MonoBehaviour
         var sceneController = FindObjectOfType<SceneController>();
         var sm = SoundManager.Instance;
 
+        // --- 0. Play 씬이 아닌 경우 인게임 UI 비활성화 고정 ---
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Play")
+        {
+            if (inGameUIGroup != null)
+                inGameUIGroup.SetActive(false);
+        }
+
         // --- 1. 플레이어 연결 ---
         // (중복 코드를 없애고 BindPlayer 함수를 호출합니다)
         if (player != null)

@@ -35,6 +35,15 @@ public class SettingsUI : MonoBehaviour
     public Button mainButton;
     public Button quitButton;
 
+    private void OnEnable()
+    {
+        // Canvas가 켜질 때 설정 패널도 확실히 켜지도록 보장 (Main 씬에서 ESC 연속 입력 시 안 보이는 문제 해결)
+        if (settingsPanel != null)
+        {
+            settingsPanel.SetActive(true);
+        }
+    }
+
     private void Start()
     {
         // 1. 값 동기화
@@ -168,6 +177,13 @@ public class SettingsUI : MonoBehaviour
         if (settingsPanel != null)
         {
             settingsPanel.SetActive(false);
+        }
+        
+        // Play 씬에서는 Canvas가 계속 켜져 있어야 하므로 끄면 안 됨.
+        // 하지만 Main 씬 등에서는 SettingsUI 전체(Canvas)를 꺼주어야 다음 ESC 입력 시 정상 작동함.
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Play")
+        {
+            this.gameObject.SetActive(false);
         }
     }
 

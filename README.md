@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://via.placeholder.com/800x400.png?text=FREAK+LOGO" alt="Freak Logo" width="100%">
+</div>
+
 # 🎮 Freak (어린이 코딩 교육 게임)
 
 ![Unity](https://img.shields.io/badge/Unity-2022.3.62f3-black?style=flat-square&logo=unity)

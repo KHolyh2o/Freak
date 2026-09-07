@@ -768,7 +768,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9e688df75edef4ea28beb631d7aa9905, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiKey: 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
+  apiKey: 
   modelName: nvidia/llama-3.1-nemotron-70b-instruct
 --- !u!114 &1657380072
 MonoBehaviour:

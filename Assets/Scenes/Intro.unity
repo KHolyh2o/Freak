@@ -686,7 +686,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   videoPlayer: {fileID: 0}
-  nextSceneName: main
+  nextSceneName: Start
   delayBeforePlay: 1
 --- !u!328 &793593736
 VideoPlayer:

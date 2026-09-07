@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 public class IntroVideoPlayer : MonoBehaviour
 {
     public VideoPlayer videoPlayer;
-    public string nextSceneName = "main"; // 영상이 끝나면 넘어갈 씬 이름
+    public string nextSceneName = "Start"; // 영상이 끝나면 넘어갈 씬 이름
     
     [Header("설정")]
     [Tooltip("영상이 시작되기 전 대기하는 시간(초)")]

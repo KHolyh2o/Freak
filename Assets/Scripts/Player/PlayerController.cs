@@ -447,7 +447,8 @@ public class PlayerController : MonoBehaviour
     public void ResetGame()
     {
         ResetPlayer();
-        cameraSwitcher?.SetSpecificCamera(0);
+        // 카메라 시점은 유저가 자유롭게 돌려보던 상태를 유지하도록 리셋하지 않습니다.
+        // cameraSwitcher?.SetSpecificCamera(0);
     }
 
     private void ResetPlayer()

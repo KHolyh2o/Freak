@@ -166,14 +166,8 @@ public class UI_Auto_Connector : MonoBehaviour
         if (resetButton != null)
         {
             resetButton.onClick.RemoveAllListeners();
-            if (gameManager != null)
-            {
-                resetButton.onClick.AddListener(() => { gameManager.RestartLevel(); sm?.PlayResetClick(); });
-            }
-            else
-            {
-                resetButton.onClick.AddListener(() => { player.ResetGame(); sm?.PlayResetClick(); });
-            }
+            // 씬을 재시작하지 않고 플레이어의 위치와 커맨드 패널만 리셋합니다.
+            resetButton.onClick.AddListener(() => { player.ResetGame(); sm?.PlayResetClick(); });
         }
 
         // --- 패널 배경 클릭 시 활성 창 변경 이벤트 바인딩 ---

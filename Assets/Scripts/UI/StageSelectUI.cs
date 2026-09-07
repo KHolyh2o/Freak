@@ -165,6 +165,10 @@ public class StageSelectUI : MonoBehaviour
                 {
                     rawImage.texture = rt;
                 }
+                else
+                {
+                    Debug.LogError($"[StageSelectUI] Stage {i+1} 버튼 프리팹에 RawImage 컴포넌트가 없습니다! 프리팹을 확인해주세요.");
+                }
             }
 
             int index = i;

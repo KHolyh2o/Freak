@@ -99,10 +99,10 @@ public class MapPreviewRenderer : MonoBehaviour
         var urpCamData = camObj.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
         urpCamData.renderPostProcessing = false; // 성능 최적화
         
-        // 투명 배경이 필요하면 SolidColor(알파 0) 사용, 아니면 Skybox
+        // 배경을 어두운 회색으로 설정 (투명이나 투명 검정일 경우 버튼의 흰색 배경과 겹쳐 안 보일 수 있음)
         cam.clearFlags = skyboxMaterial != null ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
         if (skyboxMaterial != null) cam.gameObject.AddComponent<Skybox>().material = skyboxMaterial;
-        else cam.backgroundColor = new Color(0, 0, 0, 0);
+        else cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f, 1f);
 
         cam.targetTexture = rt;
         

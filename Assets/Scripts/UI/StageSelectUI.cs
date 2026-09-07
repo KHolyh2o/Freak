@@ -93,6 +93,16 @@ public class StageSelectUI : MonoBehaviour
     {
         stageButtons.Clear();
 
+        // 1. Resources/MapData 안의 CSV 파일 개수를 세서 totalStages를 덮어씁니다.
+        TextAsset[] mapFiles = Resources.LoadAll<TextAsset>("MapData");
+        if (mapFiles != null && mapFiles.Length > 0)
+        {
+            // 이름순(Stage01, Stage02...) 정렬
+            System.Array.Sort(mapFiles, (a, b) => string.Compare(a.name, b.name));
+            totalStages = mapFiles.Length;
+            Debug.Log($"[StageSelectUI] 발견된 맵 파일 개수: {totalStages}");
+        }
+
         // Content Panel 아래에 있는 모든 자식 오브젝트를 스테이지 버튼으로 인식
         if (contentPanel.childCount > 0)
         {
@@ -101,20 +111,18 @@ public class StageSelectUI : MonoBehaviour
                 Transform child = contentPanel.GetChild(i);
                 stageButtons.Add(child.GetComponent<RectTransform>());
 
-                // 버튼 컴포넌트가 있다면 클릭 이벤트 연결
                 int index = i;
                 Button btn = child.GetComponent<Button>();
                 if (btn != null)
                 {
-                    // 기존 이벤트 유지하며 추가
                     btn.onClick.AddListener(() => OnStageClicked(index));
                 }
             }
-            totalStages = stageButtons.Count; // 실제 자식 개수로 업데이트
+            totalStages = stageButtons.Count; // 실제 자식 개수로 업데이트 (수동 배치 우선)
         }
-        else if (stageButtonPrefab != null) // 자식이 없고 프리팹이 설정되어 있다면 기존 방식대로 생성 (하이브리드 지원)
+        else if (stageButtonPrefab != null) // 자식이 없고 프리팹이 설정되어 있다면 기존 방식대로 생성
         {
-            CreateStageButtons();
+            CreateStageButtons(mapFiles);
         }
 
         // 거리 배열 초기화
@@ -124,14 +132,33 @@ public class StageSelectUI : MonoBehaviour
         }
     }
 
-    void CreateStageButtons()
+    void CreateStageButtons(TextAsset[] mapFiles)
     {
+        MapGenerator originalGenerator = FindObjectOfType<MapGenerator>();
+        if (originalGenerator == null)
+        {
+            Debug.LogWarning("[StageSelectUI] 씬에 MapGenerator가 없어 3D 프리뷰를 생성할 수 없습니다.");
+        }
+
         for (int i = 0; i < totalStages; i++)
         {
             GameObject btnObj = Instantiate(stageButtonPrefab, contentPanel);
             btnObj.name = $"Stage_{i}";
+            
+            // 텍스트 설정 (목업처럼 Map 1, Map 2)
             var textComp = btnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (textComp != null) textComp.text = (i + 1).ToString();
+            if (textComp != null) textComp.text = $"Map {i + 1}";
+
+            // 3D 맵 썸네일(RenderTexture) 설정
+            if (originalGenerator != null && MapPreviewRenderer.Instance != null && mapFiles != null && i < mapFiles.Length)
+            {
+                RenderTexture rt = MapPreviewRenderer.Instance.GeneratePreview(i, mapFiles[i].text, originalGenerator);
+                RawImage rawImage = btnObj.GetComponentInChildren<RawImage>();
+                if (rawImage != null)
+                {
+                    rawImage.texture = rt;
+                }
+            }
 
             int index = i;
             Button btn = btnObj.GetComponent<Button>();

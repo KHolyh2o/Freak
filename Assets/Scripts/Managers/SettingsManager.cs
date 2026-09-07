@@ -19,6 +19,10 @@ public class SettingsManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            
+            // 빌드 시 저사양(기본) 품질로 실행되어 그림자가 안 나오는 현상 방지를 위해 최고 품질(Ultra: 인덱스 5)로 강제 고정
+            QualitySettings.SetQualityLevel(5, true);
+            
             LoadSettings();
             ApplySettings();
         }

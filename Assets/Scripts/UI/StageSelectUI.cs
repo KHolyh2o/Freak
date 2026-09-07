@@ -322,12 +322,22 @@ public class StageSelectUI : MonoBehaviour
         // 일반 스테이지 선택 화면에서 진입할 경우 쇼룸 복귀 플래그를 꺼줍니다.
         PlayerPrefs.SetInt("ReturnToShowroom", 0);
         
-        // 선택된 스테이지 번호를 저장 (play_scene에서 읽어감)
-        PlayerPrefs.SetInt("SelectedStage", index);
-        PlayerPrefs.Save();
-        
-        Debug.Log($"[StageSelectUI] 스테이지 {index} 선택 → Play 씬으로 이동");
-        SceneManager.LoadScene("Play");
+        if (index == 0)
+        {
+            Debug.Log("[StageSelectUI] 튜토리얼 선택 → Stage_00 씬으로 이동");
+            // 튜토리얼 전용 씬
+            SceneManager.LoadScene("Stage_00");
+        }
+        else
+        {
+            // 선택된 스테이지 번호를 저장 (Play 씬의 TestMapLoader가 읽어감)
+            int mapNumber = index; // 1~20
+            PlayerPrefs.SetInt("SelectedStage", mapNumber);
+            PlayerPrefs.Save();
+            
+            Debug.Log($"[StageSelectUI] 스테이지 {mapNumber} 선택 → Play 씬으로 이동");
+            SceneManager.LoadScene("Play");
+        }
     }
 }
 

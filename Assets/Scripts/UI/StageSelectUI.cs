@@ -28,6 +28,21 @@ public class StageSelectUI : MonoBehaviour
         InitializeStageButtons();
         AddPaddingForCentering();
         SetupDragEvents(); // 드래그 이벤트 자동 연결
+        
+        // 맵 리스트가 생성된 직후, 첫 번째 맵(Stage 1)이 화면 중앙에 오도록 강제 설정
+        StartCoroutine(FocusFirstStageCoroutine());
+    }
+
+    IEnumerator FocusFirstStageCoroutine()
+    {
+        // UI LayoutGroup이 크기를 계산할 때까지 한 프레임 대기
+        yield return null;
+        
+        if (scrollRect != null && stageButtons.Count > 0)
+        {
+            scrollRect.horizontalNormalizedPosition = 0f; // 스크롤을 맨 왼쪽으로 이동 (Padding 때문에 Map 1이 중앙에 옴)
+            scrollRect.velocity = Vector2.zero;
+        }
     }
 
     void SetupDragEvents()

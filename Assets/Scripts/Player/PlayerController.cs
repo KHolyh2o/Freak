@@ -402,7 +402,7 @@ public class PlayerController : MonoBehaviour
     {
         if (activeListIndex == panelIndex)
         {
-            // 이미 활성화된 패널의 탭을 다시 누른 경우
+            // 탭을 다시 누른 경우 패널을 올리거나 내림
             isPanelsUp = !isPanelsUp;
         }
         else
@@ -416,33 +416,47 @@ public class PlayerController : MonoBehaviour
         RefreshAllPanels();
     }
 
-    // ---------------------------------------------------------
-    // 팝업창 관리
-    // ---------------------------------------------------------
-    // ---------------------------------------------------------
-    // 팝업창 관리 (레거시 코드, 더 이상 사용되지 않음)
-    // ---------------------------------------------------------
-    public void OpenLoopConfigPopup() { }
-    public void CloseLoopConfigPopup() { }
-
-    public void ClearLoopConfig()
+    // 텅 빈 슬롯(배경)을 클릭했을 때는 패널을 올리거나 내리지 않고 활성화만 수행
+    public void SetActivePanelFromSlot(int panelIndex)
     {
-        if (isExecuting) return;
-        List<CommandBlock> targetList = GetActiveList();
-        targetList.Clear();
-        RefreshAllPanels();
-        SoundManager.Instance?.PlayResetClick();
+        if (activeListIndex != panelIndex)
+        {
+            isPanelsUp = false;
+            activeListIndex = panelIndex;
+            insertIndex = -1; // 패널이 바뀌면 삽입 지점 초기화
+            RefreshAllPanels();
+        }
     }
-
-    // ---------------------------------------------------------
-    // 실행 및 리셋
     // ---------------------------------------------------------
     public void ExecuteCommands()
     {
         if (isExecuting) return;
+
         ResetPlayerPosition(); // 위치 리셋 (중요)
         // cameraSwitcher?.SetSpecificCamera(2); // 자동 전환 제거 요청
         StartCoroutine(ExecuteSequence());
+    }
+
+    private System.Collections.IEnumerator ReloadRandomMapAndExecuteSequence()
+    {
+        isExecuting = true; // 중복 실행 방지
+        MapGenerator mapGen = FindObjectOfType<MapGenerator>();
+        if (mapGen != null)
+        {
+            // MapGenerator는 내부적으로 stageNumber + 1 의 CSV 파일을 로드합니다.
+            // 20 -> Stage21_Map, 21 -> Stage22_Map, 22 -> Stage23_Map
+            int randomStage = UnityEngine.Random.Range(20, 23); 
+            mapGen.LoadStage(randomStage, false); // false = 플레이어의 커맨드는 리셋하지 않음!
+
+            // 맵 생성 완료 및 이전 블록들이 씬에서 완전히 사라지기를 기다립니다 (Destroy는 프레임 끝에 처리됨)
+            yield return new WaitForSeconds(0.1f);
+            Physics.SyncTransforms(); // 새로 스폰된 콜라이더들을 물리 엔진에 즉시 동기화
+
+        }
+
+        isExecuting = false;
+        ResetPlayerPosition(false); // 새 StartBox 위치로 갱신하되, 실행중인 코루틴 강제 종료 방지
+        yield return StartCoroutine(ExecuteSequence());
     }
 
     public void ResetGame()
@@ -549,9 +563,12 @@ public class PlayerController : MonoBehaviour
     }
 
     // ★★★ 여기가 수정된 핵심 함수입니다! ★★★
-    private void ResetPlayerPosition()
+    public void ResetPlayerPosition(bool stopCoroutines = true)
     {
-        StopAllCoroutines();
+        if (stopCoroutines)
+        {
+            StopAllCoroutines();
+        }
         isExecuting = false;
 
         if (startBox != null)
@@ -592,7 +609,16 @@ public class PlayerController : MonoBehaviour
     IEnumerator ExecuteSequence()
     {
         isExecuting = true;
-        if (!IsGrounded()) { FailSequence(); yield break; }
+        
+        // 물리 엔진이 플레이어의 새 위치와 맵의 새 콜라이더를 완벽히 인지하도록 1프레임 대기
+        yield return new WaitForFixedUpdate();
+        
+        if (!IsGrounded()) 
+        { 
+            Debug.LogError("[PlayerController] 바닥을 감지하지 못해 실행이 취소되었습니다. IsGrounded == false");
+            FailSequence(); 
+            yield break; 
+        }
 
         yield return StartCoroutine(ExecuteBlockList(mainCommandList, commandSequencePanel));
 
@@ -970,7 +996,7 @@ public class PlayerController : MonoBehaviour
             handler.onLeftClick.AddListener(() => {
                 if (!isExecuting && !isEditingScope)
                 {
-                    SetActivePanel(GetListIndexByPanel(panel));
+                    SetActivePanelFromSlot(GetListIndexByPanel(panel));
                 }
             });
         }

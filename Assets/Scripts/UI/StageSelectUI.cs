@@ -12,6 +12,7 @@ public class StageSelectUI : MonoBehaviour
     public GameObject stageButtonPrefab;
 
     [Header("스테이지 설정")]
+    public bool showTutorialButton = true;
     public int totalStages = 15;
     public float centerScale = 1.2f; // 중앙 아이템 확대 배율
     public float sideScale = 0.8f;   // 주변 아이템 축소 배율
@@ -126,8 +127,8 @@ public class StageSelectUI : MonoBehaviour
         {
             // 이름순(Stage01, Stage02...) 정렬
             System.Array.Sort(mapFiles, (a, b) => string.Compare(a.name, b.name));
-            // ★ 유저 요청: 맵 파일 개수에 +1을 해서 첫 번째 버튼은 무조건 Stage_00 튜토리얼 씬으로 가도록 만듦
-            totalStages = mapFiles.Length + 1; 
+            // ★ 튜토리얼 버튼 표시 여부에 따라 버튼 개수 결정
+            totalStages = showTutorialButton ? mapFiles.Length + 1 : mapFiles.Length; 
             Debug.Log($"[StageSelectUI] 발견된 맵 파일 개수: {mapFiles.Length} (총 버튼 수: {totalStages})");
         }
 
@@ -168,18 +169,20 @@ public class StageSelectUI : MonoBehaviour
             GameObject btnObj = Instantiate(stageButtonPrefab, contentPanel);
             btnObj.name = $"Stage_{i}";
             
+            bool isTutorial = showTutorialButton && i == 0;
+
             // 텍스트 설정
             TMPro.TextMeshProUGUI txt = btnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
             if (txt != null)
             {
-                if (i == 0) txt.text = "Tutorial"; // 첫 번째 버튼은 튜토리얼
-                else txt.text = $"Map {i}";        // 나머지는 Map 1, Map 2 ...
+                if (isTutorial) txt.text = "Tutorial"; // 첫 번째 버튼은 튜토리얼
+                else txt.text = $"Map {(showTutorialButton ? i : i + 1)}"; // 나머지는 Map 1, Map 2 ...
             }
 
             // 3D 맵 썸네일(RenderTexture) 설정
-            if (i > 0) // 첫 번째 버튼(Tutorial)은 CSV 맵이 아니므로 패스
+            if (!isTutorial) // CSV 맵인 경우
             {
-                int csvIndex = i - 1;
+                int csvIndex = showTutorialButton ? i - 1 : i;
                 if (originalGenerator != null && MapPreviewRenderer.Instance != null && mapFiles != null && csvIndex < mapFiles.Length)
                 {
                     RenderTexture rt = MapPreviewRenderer.Instance.GeneratePreview(i, mapFiles[csvIndex].text, originalGenerator);
@@ -322,7 +325,9 @@ public class StageSelectUI : MonoBehaviour
         // 일반 스테이지 선택 화면에서 진입할 경우 쇼룸 복귀 플래그를 꺼줍니다.
         PlayerPrefs.SetInt("ReturnToShowroom", 0);
         
-        if (index == 0)
+        bool isTutorial = showTutorialButton && index == 0;
+
+        if (isTutorial)
         {
             Debug.Log("[StageSelectUI] 튜토리얼 선택 → Stage_00 씬으로 이동");
             // 튜토리얼 전용 씬
@@ -330,13 +335,36 @@ public class StageSelectUI : MonoBehaviour
         }
         else
         {
-            // 선택된 스테이지 번호를 저장 (Play 씬의 TestMapLoader가 읽어감)
-            int mapNumber = index; // 1~20
+            // 선택된 스테이지 번호를 저장 (Play 씬의 TestMapLoader가 읽어감, 0-indexed)
+            int mapNumber = showTutorialButton ? index - 1 : index; 
             PlayerPrefs.SetInt("SelectedStage", mapNumber);
             PlayerPrefs.Save();
             
             Debug.Log($"[StageSelectUI] 스테이지 {mapNumber} 선택 → Play 씬으로 이동");
             SceneManager.LoadScene("Play");
+        }
+    }
+
+    public void OnBackButtonClicked()
+    {
+        SoundManager.Instance?.PlayCommandClick();
+        Debug.Log("[StageSelectUI] 뒤로 가기 선택 → Start 씬으로 이동");
+        SceneManager.LoadScene("Start");
+    }
+
+    [Header("설정창 (선택사항)")]
+    public GameObject settingsPanel;
+
+    public void OnSettingsButtonClicked()
+    {
+        SoundManager.Instance?.PlayCommandClick();
+        if (settingsPanel != null)
+        {
+            settingsPanel.SetActive(true);
+        }
+        else
+        {
+            Debug.LogWarning("[StageSelectUI] Settings Panel이 연결되어 있지 않습니다!");
         }
     }
 }

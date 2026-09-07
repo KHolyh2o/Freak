@@ -10,8 +10,8 @@ public class TestMapLoader : MonoBehaviour
     {
         yield return null; // CameraSwitcher 초기화 대기
 
-        // PlayerPrefs에서 선택된 스테이지 번호 읽기 (기본값: 1)
-        int stageNumber = PlayerPrefs.GetInt("SelectedStage", 1);
+        // PlayerPrefs에서 선택된 스테이지 번호 읽기 (기본값: 0)
+        int stageNumber = PlayerPrefs.GetInt("SelectedStage", 0);
 
         if (mapGenerator != null)
         {

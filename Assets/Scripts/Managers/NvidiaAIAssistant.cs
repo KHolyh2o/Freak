@@ -116,17 +116,18 @@ public class NvidiaAIAssistant : MonoBehaviour
             Debug.LogError($"[NvidiaAIAssistant] Error: {request.error}\n{request.downloadHandler.text}");
             if (AIPopupUI.Instance != null)
             {
-                AIPopupUI.Instance.ShowMessage("앗, 통신에 문제가 생겼어요. 다시 시도해 볼까요?", missingSkill);
+                AIPopupUI.Instance.ShowMessage("앗, 통신에 문제가 생겼어요. 다시 시도해 볼까요?", missingSkill, true);
             }
         }
         else
         {
             string jsonResponse = request.downloadHandler.text;
             string message = ParseMessageFromJson(jsonResponse);
+            bool isParsingError = message == "AI 응답을 해석할 수 없습니다.";
 
             if (AIPopupUI.Instance != null)
             {
-                AIPopupUI.Instance.ShowMessage(message, missingSkill);
+                AIPopupUI.Instance.ShowMessage(message, missingSkill, isParsingError);
             }
             else
             {

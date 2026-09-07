@@ -75,7 +75,7 @@ public class AIPopupUI : MonoBehaviour
         }
     }
 
-    public void ShowMessage(string message, string missingSkill)
+    public void ShowMessage(string message, string missingSkill, bool isError = false)
     {
         currentMissingSkill = missingSkill;
 
@@ -85,7 +85,12 @@ public class AIPopupUI : MonoBehaviour
         var player = FindObjectOfType<PlayerController>();
         if (player != null) player.ToggleUIVisibility(false);
         
-        if (practiceButton != null) practiceButton.gameObject.SetActive(true);
+        if (practiceButton != null) 
+        {
+            practiceButton.gameObject.SetActive(true);
+            practiceButton.interactable = !isError; // 에러일 경우 버튼 비활성화 (클릭 불가, 회색으로 변함)
+        }
+        
         if (closeButton != null) closeButton.gameObject.SetActive(true);
 
         // 로딩 애니메이션 중지 및 숨기기

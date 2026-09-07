@@ -13,6 +13,12 @@ public class MapPreviewRenderer : MonoBehaviour
     public float spacing = 100f; // 프리뷰 맵끼리의 간격
     public Material skyboxMaterial; // 프리뷰용 배경 (비워두면 투명/단색)
 
+    [Header("카메라 세팅 (에디터에서 맘대로 조절하세요)")]
+    public float cameraPitch = 35f;   // 위아래 기울기 각도 (추천: 35~45)
+    public float cameraYaw = 45f;     // 좌우 틀어짐 각도 (추천: 45)
+    public float cameraPadding = 1.25f; // 맵 여백 배율 (기본 1.25배)
+    public float minCameraDistance = 5f; // 카메라 최소 거리 (작은 맵이 너무 작게 보이면 이 수치를 줄이세요)
+
     private List<RenderTexture> activeTextures = new List<RenderTexture>();
     private List<GameObject> activePreviewMaps = new List<GameObject>();
 
@@ -113,14 +119,14 @@ public class MapPreviewRenderer : MonoBehaviour
         float centerZ = (minZ + maxZ) / 2f;
         Vector3 mapCenter = basePos + new Vector3(centerX, 0, centerZ);
 
-        float mapRadius = Mathf.Max(mapWidth, mapDepth) * 0.5f * 1.25f; // 플레이 씬과 동일한 1.25배 여백
+        float mapRadius = Mathf.Max(mapWidth, mapDepth) * 0.5f * cameraPadding; // 인스펙터에서 조절 가능
         float distance = mapRadius / Mathf.Sin(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
         
-        // UI에서는 맵이 너무 작게 보이지 않도록 최소 거리 제한을 대폭 완화
-        if (distance < 5f) distance = 5f;
+        // UI에서는 맵이 너무 작게 보이지 않도록 최소 거리 제한
+        if (distance < minCameraDistance) distance = minCameraDistance;
 
-        // 쿼터뷰 각도 (Pitch: 35, Yaw: 45)
-        Quaternion camRot = Quaternion.Euler(35f, 45f, 0f);
+        // 인스펙터에서 설정한 각도 적용
+        Quaternion camRot = Quaternion.Euler(cameraPitch, cameraYaw, 0f);
         cam.transform.position = mapCenter + (camRot * Vector3.back) * distance;
         cam.transform.rotation = camRot;
 

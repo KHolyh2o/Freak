@@ -41499,6 +41499,14 @@ PrefabInstance:
       propertyPath: isometricTarget
       value: 
       objectReference: {fileID: 360561165}
+    - target: {fileID: 6450959029051815979, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: isometricScreenYOffset
+      value: -4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6450959029051815979, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
+      propertyPath: _isometricPivotPosition.y
+      value: 0.8
+      objectReference: {fileID: 0}
     - target: {fileID: 7594869969687318652, guid: d12357fc300516a4c8390bb8580d2540, type: 3}
       propertyPath: target
       value: 

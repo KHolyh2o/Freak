@@ -21,6 +21,9 @@ EditorBuildSettings:
     path: Assets/Scenes/MuseumHub.unity
     guid: e6d671495bc834cb6a7a85a506701818
   - enabled: 1
+    path: Assets/Scenes/Stage_00.unity
+    guid: bb1e32c3c87284041a54aab0d376cc14
+  - enabled: 1
     path: Assets/Scenes/Practice.unity
     guid: fc60320edc0894d69a9653379f1e1cb1
   m_configObjects: {}

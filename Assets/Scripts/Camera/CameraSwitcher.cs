@@ -235,6 +235,26 @@ public class CameraSwitcher : MonoBehaviour
 
     private bool IsPointerOverUI()
     {
+        // 1. 퍼즈 상태거나 설정창이 켜져서 시간이 멈춘 경우 무조건 카메라 드래그 차단
+        if (Time.timeScale == 0f) return true;
+
+        // 2. 설정창이 열려있는지 확인 (시간이 멈추지 않는 상황을 대비한 안전 장치)
+        SettingsUI[] uis = Resources.FindObjectsOfTypeAll<SettingsUI>();
+        foreach (var ui in uis)
+        {
+            if (ui.gameObject.scene.isLoaded && ui.gameObject.activeInHierarchy) return true;
+        }
+
+        // 3. AI 팝업창이 떠있거나 로딩 중인지 확인
+        if (AIPopupUI.Instance != null)
+        {
+            bool isPopupActive = AIPopupUI.Instance.popupPanel != null && AIPopupUI.Instance.popupPanel.activeInHierarchy;
+            bool isLoadingActive = AIPopupUI.Instance.loadingImage != null && AIPopupUI.Instance.loadingImage.gameObject.activeInHierarchy;
+            
+            if (isPopupActive || isLoadingActive)
+                return true;
+        }
+
         if (UnityEngine.EventSystems.EventSystem.current == null) return false;
         
         Vector2 pos = Input.mousePosition;

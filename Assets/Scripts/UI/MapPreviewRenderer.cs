@@ -14,10 +14,12 @@ public class MapPreviewRenderer : MonoBehaviour
     public Material skyboxMaterial; // 프리뷰용 배경 (비워두면 투명/단색)
 
     [Header("카메라 세팅 (에디터에서 맘대로 조절하세요)")]
+    public float cameraFOV = 30f;     // 시야각 (플레이 씬의 카메라 FOV와 똑같이 맞춰주세요! 기본 30)
     public float cameraPitch = 35f;   // 위아래 기울기 각도 (추천: 35~45)
     public float cameraYaw = 45f;     // 좌우 틀어짐 각도 (추천: 45)
     public float cameraPadding = 1.25f; // 맵 여백 배율 (기본 1.25배)
     public float minCameraDistance = 5f; // 카메라 최소 거리 (작은 맵이 너무 작게 보이면 이 수치를 줄이세요)
+    public float cameraYOffset = 0f;    // 상하 치우침 보정 (플레이 씬의 isometricScreenYOffset과 동일한 역할)
 
     private List<RenderTexture> activeTextures = new List<RenderTexture>();
     private List<GameObject> activePreviewMaps = new List<GameObject>();
@@ -45,7 +47,7 @@ public class MapPreviewRenderer : MonoBehaviour
         mapRoot.transform.position = basePos;
         activePreviewMaps.Add(mapRoot);
 
-        // 3. CSV 파싱 및 블록 배치 (MapGenerator 로직 간소화)
+        // 3. CSV 파싱 및 블록 배치 (MapGenerator 로직 완벽히 동일하게 적용)
         string[] rows = csvText.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
         int minX = int.MaxValue, maxX = int.MinValue;
         int minZ = int.MaxValue, maxZ = int.MinValue;
@@ -86,7 +88,6 @@ public class MapPreviewRenderer : MonoBehaviour
             {
                 GameObject block = Instantiate(prefabToSpawn, basePos + new Vector3(x, y, z), rot, mapRoot.transform);
                 
-                // 프리뷰용이므로 모든 충돌체, 물리, 스크립트 기능 비활성화 (순수 그래픽만 남김)
                 StripLogicComponents(block);
 
                 if (x < minX) minX = x;
@@ -96,16 +97,22 @@ public class MapPreviewRenderer : MonoBehaviour
             }
         }
 
+        // 만약 빈 맵이라면 기본값 처리
+        if (minX > maxX || minZ > maxZ)
+        {
+            minX = 0; maxX = 0;
+            minZ = 0; maxZ = 0;
+        }
+
         // 4. 카메라 세팅
         GameObject camObj = new GameObject("PreviewCamera");
         camObj.transform.SetParent(mapRoot.transform);
         Camera cam = camObj.AddComponent<Camera>();
+        cam.fieldOfView = cameraFOV; // 설정한 FOV 적용
         
-        // ★ URP 렌더링 호환성을 위한 추가 설정 (이게 없으면 렌더텍스처가 까맣게 나올 수 있음)
         var urpCamData = camObj.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
-        urpCamData.renderPostProcessing = false; // 성능 최적화
+        urpCamData.renderPostProcessing = false;
         
-        // 배경을 투명으로 설정 (유저 요청)
         cam.clearFlags = skyboxMaterial != null ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
         if (skyboxMaterial != null) cam.gameObject.AddComponent<Skybox>().material = skyboxMaterial;
         else cam.backgroundColor = new Color(0, 0, 0, 0);
@@ -119,15 +126,18 @@ public class MapPreviewRenderer : MonoBehaviour
         float centerZ = (minZ + maxZ) / 2f;
         Vector3 mapCenter = basePos + new Vector3(centerX, 0, centerZ);
 
-        float mapRadius = Mathf.Max(mapWidth, mapDepth) * 0.5f * cameraPadding; // 인스펙터에서 조절 가능
+        float mapRadius = Mathf.Max(mapWidth, mapDepth) * 0.5f * cameraPadding;
         float distance = mapRadius / Mathf.Sin(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
         
-        // UI에서는 맵이 너무 작게 보이지 않도록 최소 거리 제한
         if (distance < minCameraDistance) distance = minCameraDistance;
 
-        // 인스펙터에서 설정한 각도 적용
         Quaternion camRot = Quaternion.Euler(cameraPitch, cameraYaw, 0f);
-        cam.transform.position = mapCenter + (camRot * Vector3.back) * distance;
+        Vector3 properPos = mapCenter + (camRot * Vector3.back) * distance;
+        
+        // 플레이 씬의 isometricScreenYOffset 처럼 위아래 쏠림 보정 적용
+        properPos += camRot * Vector3.up * cameraYOffset;
+        
+        cam.transform.position = properPos;
         cam.transform.rotation = camRot;
 
         return rt;

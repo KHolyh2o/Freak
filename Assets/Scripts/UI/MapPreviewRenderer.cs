@@ -99,26 +99,28 @@ public class MapPreviewRenderer : MonoBehaviour
         var urpCamData = camObj.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
         urpCamData.renderPostProcessing = false; // 성능 최적화
         
-        // 배경을 어두운 회색으로 설정 (투명이나 투명 검정일 경우 버튼의 흰색 배경과 겹쳐 안 보일 수 있음)
+        // 배경을 투명으로 설정 (유저 요청)
         cam.clearFlags = skyboxMaterial != null ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
         if (skyboxMaterial != null) cam.gameObject.AddComponent<Skybox>().material = skyboxMaterial;
-        else cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f, 1f);
+        else cam.backgroundColor = new Color(0, 0, 0, 0);
 
         cam.targetTexture = rt;
         
-        // 5. 카메라 앵글 잡기 (쿼터뷰 스타일)
+        // 5. 카메라 앵글 잡기 (플레이 씬 CameraSwitcher와 동일한 로직 적용)
         float mapWidth = (maxX - minX) + 1f;
         float mapDepth = (maxZ - minZ) + 1f;
         float centerX = (minX + maxX) / 2f;
         float centerZ = (minZ + maxZ) / 2f;
         Vector3 mapCenter = basePos + new Vector3(centerX, 0, centerZ);
 
-        float mapRadius = Mathf.Max(mapWidth, mapDepth) * 0.5f * 1.5f; // 1.5배 여백
+        float mapRadius = Mathf.Max(mapWidth, mapDepth) * 0.5f * 1.25f; // 플레이 씬과 동일한 1.25배 여백
         float distance = mapRadius / Mathf.Sin(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
-        if (distance < 15f) distance = 15f;
+        
+        // UI에서는 맵이 너무 작게 보이지 않도록 최소 거리 제한을 대폭 완화
+        if (distance < 5f) distance = 5f;
 
-        // 쿼터뷰 각도 (Pitch: 45, Yaw: 45)
-        Quaternion camRot = Quaternion.Euler(35f, 45f, 0f); // 살짝 덜 눕히기 (35도)
+        // 쿼터뷰 각도 (Pitch: 35, Yaw: 45)
+        Quaternion camRot = Quaternion.Euler(35f, 45f, 0f);
         cam.transform.position = mapCenter + (camRot * Vector3.back) * distance;
         cam.transform.rotation = camRot;
 

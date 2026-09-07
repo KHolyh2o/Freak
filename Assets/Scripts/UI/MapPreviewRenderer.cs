@@ -95,6 +95,10 @@ public class MapPreviewRenderer : MonoBehaviour
         camObj.transform.SetParent(mapRoot.transform);
         Camera cam = camObj.AddComponent<Camera>();
         
+        // ★ URP 렌더링 호환성을 위한 추가 설정 (이게 없으면 렌더텍스처가 까맣게 나올 수 있음)
+        var urpCamData = camObj.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+        urpCamData.renderPostProcessing = false; // 성능 최적화
+        
         // 투명 배경이 필요하면 SolidColor(알파 0) 사용, 아니면 Skybox
         cam.clearFlags = skyboxMaterial != null ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
         if (skyboxMaterial != null) cam.gameObject.AddComponent<Skybox>().material = skyboxMaterial;

@@ -200,7 +200,7 @@ public class StageSelectUI : MonoBehaviour
                 RawImage rawImage = btnObj.GetComponentInChildren<RawImage>();
                 if (rawImage != null)
                 {
-                    rawImage.texture = rt;
+                    rawImage.color = new Color(0, 0, 0, 0);
                 }
                 else
                 {

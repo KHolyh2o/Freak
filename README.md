@@ -1,5 +1,6 @@
 <div align="center">
-  <img src="https://via.placeholder.com/800x400.png?text=FREAK+LOGO" alt="Freak Logo" width="100%">
+  <img src="<img width="1920" height="1080" alt="cover" src="https://github.com/user-attachments/assets/5b0b501e-320a-450b-870d-c8377c0b9a8d" />
+" alt="Freak Logo" width="100%">
 </div>
 
 # 🎮 Freak (어린이 코딩 교육 게임)

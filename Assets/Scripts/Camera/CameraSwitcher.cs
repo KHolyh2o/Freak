@@ -26,10 +26,11 @@ public class CameraSwitcher : MonoBehaviour
     private DragMode _currentDragMode = DragMode.None;
     private Vector2 _dragAccumulator = Vector2.zero;
 
-    private float _currentIsometricYaw = 0f;
-    private float _isometricPitch = 45f;
-    private float _isometricDistance = 20f;
-    private Vector3 _isometricPivotPosition = Vector3.zero;
+    [Header("쿼터뷰 수동 제어 (MapGenerator 없는 씬 전용)")]
+    [SerializeField] private float _currentIsometricYaw = 0f;
+    [SerializeField] private float _isometricPitch = 45f;
+    [SerializeField] private float _isometricDistance = 20f;
+    [SerializeField] private Vector3 _isometricPivotPosition = Vector3.zero;
     private Vector3 _previousMousePos;
     private bool _isDraggingCamera = false;
 
@@ -68,6 +69,12 @@ public class CameraSwitcher : MonoBehaviour
 
         // ★ [Fix] 메인 카메라의 원래 FOV 저장 (변질 방지)
         _defaultFOV = _mainCam.fieldOfView;
+
+        // ★ [튜토리얼 예외 처리] Stage_00 씬일 경우 높이 오프셋을 0.8로 고정
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Stage_00")
+        {
+            isometricScreenYOffset = 0.8f;
+        }
 
         // ★ [Dual Camera Setup] SkyCam 생성
         // 메인 카메라는 지형/캐릭터만 찍고(Depth Only), 배경 카메라는 하늘만 찍습니다(Skybox).

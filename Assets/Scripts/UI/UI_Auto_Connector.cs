@@ -40,8 +40,11 @@ public class UI_Auto_Connector : MonoBehaviour
         var sceneController = FindObjectOfType<SceneController>();
         var sm = SoundManager.Instance;
 
-        // --- 0. Play 씬이 아닌 경우 인게임 UI 비활성화 고정 ---
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Play")
+        // --- 0. 비플레이 씬(main, Intro, MuseumHub)인 경우 인게임 UI 비활성화 고정 ---
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";
+        
+        if (!isPlayScene)
         {
             if (inGameUIGroup != null)
                 inGameUIGroup.SetActive(false);

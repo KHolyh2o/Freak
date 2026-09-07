@@ -41,11 +41,13 @@ public class SettingsManager : MonoBehaviour
 
     private void Update()
     {
-        // 글로벌 ESC 키 감지 (Play 씬 제외 - Play 씬은 GameManager가 담당)
+        // 글로벌 ESC 키 감지 (플레이 씬 제외 - 플레이 씬은 GameManager가 담당)
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            if (sceneName != "Play")
+            bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";
+            
+            if (!isPlayScene)
             {
                 // 꺼져 있는 UI까지 찾아옴
                 SettingsUI[] uis = Resources.FindObjectsOfTypeAll<SettingsUI>();

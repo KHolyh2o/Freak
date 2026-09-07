@@ -179,9 +179,12 @@ public class SettingsUI : MonoBehaviour
             settingsPanel.SetActive(false);
         }
         
-        // Play 씬에서는 Canvas가 계속 켜져 있어야 하므로 끄면 안 됨.
-        // 하지만 Main 씬 등에서는 SettingsUI 전체(Canvas)를 꺼주어야 다음 ESC 입력 시 정상 작동함.
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Play")
+        // Play 씬(Stage, Practice 등)에서는 Canvas가 계속 켜져 있어야 하므로 끄면 안 됨.
+        // 하지만 Main 씬 등 비플레이 씬에서는 SettingsUI 전체(Canvas)를 꺼주어야 다음 ESC 입력 시 정상 작동함.
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";
+
+        if (!isPlayScene)
         {
             this.gameObject.SetActive(false);
         }

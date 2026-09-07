@@ -21,8 +21,11 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // Play 씬에서만 GameManager가 인게임 퍼즈/UI 토글을 담당
-        if (SceneManager.GetActiveScene().name == "Play")
+        string sceneName = SceneManager.GetActiveScene().name;
+        // main, Intro, MuseumHub 등 비플레이 씬을 제외한 모든 플레이 씬(Practice, Stage_00 등)에서 작동하도록 수정
+        bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";
+
+        if (isPlayScene)
         {
             if (Input.GetKeyDown(KeyCode.Escape))
             {

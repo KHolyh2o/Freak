@@ -255,6 +255,13 @@ public class CameraSwitcher : MonoBehaviour
                 return true;
         }
 
+        // 4. 성공(클리어) 패널이 떠있는지 확인
+        PlayerController player = FindObjectOfType<PlayerController>();
+        if (player != null && player.IsSuccessPanelActive)
+        {
+            return true;
+        }
+
         if (UnityEngine.EventSystems.EventSystem.current == null) return false;
         
         Vector2 pos = Input.mousePosition;

@@ -38,6 +38,7 @@ public class PlayerController : MonoBehaviour
     // --- UI 연동 ---
     private GameObject commandSlotPrefab;
     private GameObject successPanel;
+    public bool IsSuccessPanelActive => successPanel != null && successPanel.activeInHierarchy;
     private TextMeshProUGUI limitText;
     private GameObject inGameUIGroup;
     private GameObject limitBox;

@@ -126,8 +126,9 @@ public class StageSelectUI : MonoBehaviour
         {
             // 이름순(Stage01, Stage02...) 정렬
             System.Array.Sort(mapFiles, (a, b) => string.Compare(a.name, b.name));
-            totalStages = mapFiles.Length;
-            Debug.Log($"[StageSelectUI] 발견된 맵 파일 개수: {totalStages}");
+            // ★ 유저 요청: 맵 파일 개수에 +1을 해서 첫 번째 버튼은 무조건 Stage_00 튜토리얼 씬으로 가도록 만듦
+            totalStages = mapFiles.Length + 1; 
+            Debug.Log($"[StageSelectUI] 발견된 맵 파일 개수: {mapFiles.Length} (총 버튼 수: {totalStages})");
         }
 
         // 2. 스크롤 뷰 안에 에디터에서 미리 배치해둔 더미(미리보기용) 버튼이 있다면 전부 삭제합니다.
@@ -167,14 +168,35 @@ public class StageSelectUI : MonoBehaviour
             GameObject btnObj = Instantiate(stageButtonPrefab, contentPanel);
             btnObj.name = $"Stage_{i}";
             
-            // 텍스트 설정 (목업처럼 Map 1, Map 2)
-            var textComp = btnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (textComp != null) textComp.text = $"Map {i + 1}";
+            // 텍스트 설정
+            TMPro.TextMeshProUGUI txt = btnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (txt != null)
+            {
+                if (i == 0) txt.text = "Tutorial"; // 첫 번째 버튼은 튜토리얼
+                else txt.text = $"Map {i}";        // 나머지는 Map 1, Map 2 ...
+            }
 
             // 3D 맵 썸네일(RenderTexture) 설정
-            if (originalGenerator != null && MapPreviewRenderer.Instance != null && mapFiles != null && i < mapFiles.Length)
+            if (i > 0) // 첫 번째 버튼(Tutorial)은 CSV 맵이 아니므로 패스
             {
-                RenderTexture rt = MapPreviewRenderer.Instance.GeneratePreview(i, mapFiles[i].text, originalGenerator);
+                int csvIndex = i - 1;
+                if (originalGenerator != null && MapPreviewRenderer.Instance != null && mapFiles != null && csvIndex < mapFiles.Length)
+                {
+                    RenderTexture rt = MapPreviewRenderer.Instance.GeneratePreview(i, mapFiles[csvIndex].text, originalGenerator);
+                    RawImage rawImage = btnObj.GetComponentInChildren<RawImage>();
+                    if (rawImage != null)
+                    {
+                        rawImage.texture = rt;
+                    }
+                    else
+                    {
+                        Debug.LogError($"[StageSelectUI] Stage {i+1} 버튼 프리팹에 RawImage 컴포넌트가 없습니다! 프리팹을 확인해주세요.");
+                    }
+                }
+            }
+            else
+            {
+                // 튜토리얼 버튼은 렌더링할 3D 맵이 없으므로 RawImage를 투명하게 지워버립니다.
                 RawImage rawImage = btnObj.GetComponentInChildren<RawImage>();
                 if (rawImage != null)
                 {

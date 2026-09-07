@@ -66,10 +66,22 @@ public class StageSelectUI : MonoBehaviour
             layout.padding.left = Mathf.Max(0, Mathf.RoundToInt(padding));
             layout.padding.right = Mathf.Max(0, Mathf.RoundToInt(padding));
             
+            // ★ 수직 중앙 정렬 강제 적용 (위로 달라붙는 현상 방지)
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childForceExpandHeight = false; // 높이를 강제로 늘리지 않음
+            layout.childControlHeight = false;     // 자식의 원래 높이 존중
+            
             // ★ 스크롤뷰 고무줄(튕김) 현상 방지: Content가 자기 크기를 제대로 알도록 설정
             ContentSizeFitter fitter = contentPanel.GetComponent<ContentSizeFitter>();
             if (fitter == null) fitter = contentPanel.gameObject.AddComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained; // 수직은 자유롭게
+
+            // Content 자신의 앵커를 중앙으로 맞춤
+            contentPanel.pivot = new Vector2(0.5f, 0.5f);
+            contentPanel.anchorMin = new Vector2(0f, 0.5f);
+            contentPanel.anchorMax = new Vector2(1f, 0.5f);
+            contentPanel.anchoredPosition = new Vector2(contentPanel.anchoredPosition.x, 0f);
 
             // 레이아웃 즉시 업데이트
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentPanel);

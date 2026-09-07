@@ -95,12 +95,26 @@ public class SettingsUI : MonoBehaviour
         {
             mainButton.onClick.AddListener(OnMainButtonClicked);
             AddHoverEffect(mainButton.gameObject);
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            
+            // 오직 'main' 씬에서만 메인으로 가기 버튼을 숨깁니다.
+            if (sceneName == "main")
+                mainButton.gameObject.SetActive(false);
+            else
+                mainButton.gameObject.SetActive(true);
         }
 
         if (quitButton != null)
         {
             quitButton.onClick.AddListener(OnQuitButtonClicked);
             AddHoverEffect(quitButton.gameObject);
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            
+            // 오직 'main' 씬에서만 게임 종료 버튼을 보여줍니다.
+            if (sceneName == "main")
+                quitButton.gameObject.SetActive(true);
+            else
+                quitButton.gameObject.SetActive(false);
         }
 
         UpdateButtonVisibility();
@@ -110,18 +124,18 @@ public class SettingsUI : MonoBehaviour
     {
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         
-        // 1. Play 씬일 때는 '메인으로 이동' 활성화
-        // 2. 그 외의 씬 (main, 스테이지 선택 씬 등) 에서는 '게임 종료' 활성화
-        bool isPlayScene = (sceneName == "Play");
+        // 오직 'main' 씬에서만 게임 종료 버튼을 띄우고, 
+        // 그 외 모든 씬(Play, Practice, MuseumHub 등)에서는 메인으로 이동 버튼을 띄움
+        bool isMainScene = (sceneName == "main");
 
         if (mainButton != null)
         {
-            mainButton.gameObject.SetActive(isPlayScene);
+            mainButton.gameObject.SetActive(!isMainScene);
         }
         
         if (quitButton != null)
         {
-            quitButton.gameObject.SetActive(!isPlayScene);
+            quitButton.gameObject.SetActive(isMainScene);
         }
     }
 

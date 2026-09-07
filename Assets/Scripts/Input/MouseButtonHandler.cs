@@ -2,14 +2,14 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events;
 
-public class MouseButtonHandler : MonoBehaviour, IPointerDownHandler
+public class MouseButtonHandler : MonoBehaviour, IPointerClickHandler
 {
     public UnityEvent onLeftClick = new UnityEvent();
     public UnityEvent onRightClick = new UnityEvent();
 
-    public void OnPointerDown(PointerEventData eventData)
+    public void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log($"[MouseButtonHandler] 마우스 눌림 감지! 버튼 종류: {eventData.button}, 대상: {gameObject.name}");
+        // Debug.Log($"[MouseButtonHandler] 마우스 클릭 감지! 버튼 종류: {eventData.button}, 대상: {gameObject.name}");
 
         if (eventData.button == PointerEventData.InputButton.Left)
         {

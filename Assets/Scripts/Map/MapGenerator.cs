@@ -39,7 +39,7 @@ public class MapGenerator : MonoBehaviour
     [Header("카메라 연동")]
     public CameraSwitcher cameraSwitcher; 
 
-    public void LoadStage(int stageNumber)
+    public void LoadStage(int stageNumber, bool resetPlayer = true)
     {
         if (AIManager.Instance != null)
         {
@@ -55,19 +55,19 @@ public class MapGenerator : MonoBehaviour
             return;
         }
 
-        ParseCSVAndSpawn(csvData.text);
+        ParseCSVAndSpawn(csvData.text, resetPlayer);
     }
 
-    public void LoadStageFromString(string csvText)
+    public void LoadStageFromString(string csvText, bool resetPlayer = true)
     {
         if (AIManager.Instance != null)
         {
             AIManager.Instance.ResetStageData();
         }
-        ParseCSVAndSpawn(csvText);
+        ParseCSVAndSpawn(csvText, resetPlayer);
     }
 
-    private void ParseCSVAndSpawn(string csvText)
+    private void ParseCSVAndSpawn(string csvText, bool resetPlayer = true)
     {
         // 1. 기존 블록 초기화
         for (int i = transform.childCount - 1; i >= 0; i--)
@@ -185,7 +185,15 @@ public class MapGenerator : MonoBehaviour
                     pc.maxCommandCost = parsedMaxCost; // 코스트 설정
                     Debug.Log($"[MapGenerator] Start 블록에서 코스트 한도를 {parsedMaxCost}로 설정했습니다.");
                 }
-                pc.ResetGame(); // 할당된 StartBox 기준으로 리셋
+                
+                if (resetPlayer)
+                {
+                    pc.ResetGame(); // 할당된 StartBox 기준으로 전체 리셋 (UI 슬롯 등 전부 파괴)
+                }
+                else
+                {
+                    pc.ResetPlayerPosition(false); // 위치만 StartBox 기준으로 갱신 (유저 코드 보존 및 코루틴 유지)
+                }
             }
         }
     }

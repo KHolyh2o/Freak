@@ -120,22 +120,51 @@ public class SettingsUI : MonoBehaviour
         UpdateButtonVisibility();
     }
 
+    private Vector2 defaultConfirmPos;
+
+    private void Awake()
+    {
+        if (confirmButton != null)
+        {
+            RectTransform rect = confirmButton.GetComponent<RectTransform>();
+            if (rect != null)
+                defaultConfirmPos = rect.anchoredPosition;
+        }
+    }
+
     public void UpdateButtonVisibility()
     {
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         
-        // 오직 'main' 씬에서만 게임 종료 버튼을 띄우고, 
-        // 그 외 모든 씬(Play, Practice, MuseumHub 등)에서는 메인으로 이동 버튼을 띄움
-        bool isMainScene = (sceneName == "main");
+        bool isStartOrMain = (sceneName == "Start" || sceneName == "main");
 
         if (mainButton != null)
         {
-            mainButton.gameObject.SetActive(!isMainScene);
+            mainButton.gameObject.SetActive(!isStartOrMain);
         }
         
         if (quitButton != null)
         {
-            quitButton.gameObject.SetActive(isMainScene);
+            // 사용자의 요청으로 게임 종료 버튼은 완전 제거(항상 숨김)
+            quitButton.gameObject.SetActive(false);
+        }
+
+        if (confirmButton != null)
+        {
+            RectTransform confirmRect = confirmButton.GetComponent<RectTransform>();
+            if (confirmRect != null)
+            {
+                if (isStartOrMain)
+                {
+                    // 메인/시작 씬에서는 확인 버튼을 가운데로
+                    confirmRect.anchoredPosition = new Vector2(0, confirmRect.anchoredPosition.y);
+                }
+                else
+                {
+                    // 다른 씬에서는 원래 위치(우측 등)로 복구
+                    confirmRect.anchoredPosition = defaultConfirmPos;
+                }
+            }
         }
     }
 
@@ -196,7 +225,7 @@ public class SettingsUI : MonoBehaviour
         // Play 씬(Stage, Practice 등)에서는 Canvas가 계속 켜져 있어야 하므로 끄면 안 됨.
         // 하지만 Main 씬 등 비플레이 씬에서는 SettingsUI 전체(Canvas)를 꺼주어야 다음 ESC 입력 시 정상 작동함.
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";
+        bool isPlayScene = sceneName != "main" && sceneName != "Start" && sceneName != "MuseumHub";
 
         if (!isPlayScene)
         {

@@ -12,6 +12,15 @@ public class UI_Auto_Connector : MonoBehaviour
     public TextMeshProUGUI limitText;
     public GameObject limitBox;
 
+    [Header("커맨드 블록 중첩(Nesting) 시각화")]
+    public Sprite ifBorderSprite;
+    public Sprite whileBorderSprite;
+    public float nestedScaleFactor = 0.8f;
+
+    [Header("수정 모드 점선 빈칸(Empty Slot) 시각화")]
+    public Sprite ifEmptySlotSprite;
+    public Sprite whileEmptySlotSprite;
+
     // 게임 중 UI 묶음
     public GameObject inGameUIGroup;
 
@@ -124,6 +133,13 @@ public class UI_Auto_Connector : MonoBehaviour
             limitBox
         );
 
+        player.ifBorderSprite = this.ifBorderSprite;
+        player.whileBorderSprite = this.whileBorderSprite;
+        player.nestedScaleFactor = this.nestedScaleFactor;
+
+        player.ifEmptySlotSprite = this.ifEmptySlotSprite;
+        player.whileEmptySlotSprite = this.whileEmptySlotSprite;
+
         // 3. (★ 핵심) 3인칭 카메라에게 "이 플레이어를 따라가!"라고 알려주기
         if (camSwitcher != null && camSwitcher.cameras.Length > 2)
         {
@@ -138,26 +154,41 @@ public class UI_Auto_Connector : MonoBehaviour
             }
         }
 
-        // 4. 버튼 리스너 연결 (기존 코드 유지)
+        // 4. 버튼 리스너 연결 (기존 코드 유지 및 잠금 상태 확인 추가)
         forwardButton.onClick.RemoveAllListeners();
-        forwardButton.onClick.AddListener(() => { player.AddCommand_Forward(); });
+        forwardButton.onClick.AddListener(() => { 
+            if (forwardButton.GetComponent<CommandDragSource>()?.IsLocked == true) return;
+            player.AddCommand_Forward(); 
+        });
 
         rightButton.onClick.RemoveAllListeners();
-        rightButton.onClick.AddListener(() => { player.AddCommand_TurnRight(); });
+        rightButton.onClick.AddListener(() => { 
+            if (rightButton.GetComponent<CommandDragSource>()?.IsLocked == true) return;
+            player.AddCommand_TurnRight(); 
+        });
 
         leftButton.onClick.RemoveAllListeners();
-        leftButton.onClick.AddListener(() => { player.AddCommand_TurnLeft(); });
+        leftButton.onClick.AddListener(() => { 
+            if (leftButton.GetComponent<CommandDragSource>()?.IsLocked == true) return;
+            player.AddCommand_TurnLeft(); 
+        });
 
         if (ifButton != null)
         {
             ifButton.onClick.RemoveAllListeners();
-            ifButton.onClick.AddListener(() => { player.AddCommand_If_Tree(); });
+            ifButton.onClick.AddListener(() => { 
+                if (ifButton.GetComponent<CommandDragSource>()?.IsLocked == true) return;
+                player.AddCommand_If_Tree(); 
+            });
         }
 
         if (whileButton != null)
         {
             whileButton.onClick.RemoveAllListeners();
-            whileButton.onClick.AddListener(() => { player.AddCommand_While_Tree(); });
+            whileButton.onClick.AddListener(() => { 
+                if (whileButton.GetComponent<CommandDragSource>()?.IsLocked == true) return;
+                player.AddCommand_While_Tree(); 
+            });
         }
 
         executeButton.onClick.RemoveAllListeners();
@@ -215,6 +246,7 @@ public class UI_Auto_Connector : MonoBehaviour
                     handler.onLeftClick.AddListener(() => 
                     {
                         Debug.Log($"[UI] 함수 버튼 {capturedIndex} 좌클릭 됨! (커맨드 추가 시도)");
+                        if (functionButtons[capturedIndex].GetComponent<CommandDragSource>()?.IsLocked == true) return;
                         player.AddCommand_CallFunction(capturedIndex);
                     });
 
@@ -222,6 +254,8 @@ public class UI_Auto_Connector : MonoBehaviour
                     handler.onRightClick.AddListener(() => 
                     {
                         Debug.Log($"[UI] 함수 버튼 {capturedIndex} 우클릭 됨! 패널 활성화 상태 토글 시도");
+                        if (functionButtons[capturedIndex].GetComponent<CommandDragSource>()?.IsLocked == true) return;
+                        
                         if (functionPanels != null && capturedIndex < functionPanels.Length && functionPanels[capturedIndex] != null)
                         {
                             bool isActive = functionPanels[capturedIndex].activeSelf;

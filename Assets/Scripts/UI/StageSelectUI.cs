@@ -19,6 +19,11 @@ public class StageSelectUI : MonoBehaviour
     public float snapSpeed = 10f;    // 스냅 속도 (높을수록 빠름)
     public float buttonSpacing = 200f; // 버튼 간격 (임시, LayoutGroup 사용 시 무시됨)
 
+    [Header("잠금(Lock) 설정")]
+    public Sprite lockIconSprite;
+    public bool useDebugUnlockStage = false;
+    public int debugUnlockStage = 1;
+
     private List<RectTransform> stageButtons = new List<RectTransform>();
     private bool isDragging = false;
     private float[] distances; // 각 버튼의 중심까지 거리
@@ -44,6 +49,12 @@ public class StageSelectUI : MonoBehaviour
             scrollRect.horizontalNormalizedPosition = 0f; // 스크롤을 맨 왼쪽으로 이동 (Padding 때문에 Map 1이 중앙에 옴)
             scrollRect.velocity = Vector2.zero;
         }
+    }
+
+    public int GetUnlockedStage()
+    {
+        if (useDebugUnlockStage) return debugUnlockStage;
+        return PlayerPrefs.GetInt("UnlockedStage", 1);
     }
 
     void SetupDragEvents()
@@ -180,16 +191,27 @@ public class StageSelectUI : MonoBehaviour
             }
 
             // 3D 맵 썸네일(RenderTexture) 설정
+            bool isLocked = false;
+            
             if (!isTutorial) // CSV 맵인 경우
             {
                 int csvIndex = showTutorialButton ? i - 1 : i;
+                int mapNumber = csvIndex + 1;
+                isLocked = mapNumber > GetUnlockedStage();
+                
                 if (originalGenerator != null && MapPreviewRenderer.Instance != null && mapFiles != null && csvIndex < mapFiles.Length)
                 {
-                    RenderTexture rt = MapPreviewRenderer.Instance.GeneratePreview(i, mapFiles[csvIndex].text, originalGenerator);
+                    string mapData = isLocked ? MapPreviewRenderer.DummyLockedMapCSV : mapFiles[csvIndex].text;
+                    RenderTexture rt = MapPreviewRenderer.Instance.GeneratePreview(i, mapData, originalGenerator);
                     RawImage rawImage = btnObj.GetComponentInChildren<RawImage>();
                     if (rawImage != null)
                     {
                         rawImage.texture = rt;
+                        if (isLocked)
+                        {
+                            // 잠긴 상태: 전체 버튼을 덮는 오버레이 추가
+                            CreateLockOverlay(btnObj.transform);
+                        }
                     }
                     else
                     {
@@ -219,6 +241,41 @@ public class StageSelectUI : MonoBehaviour
             }
             stageButtons.Add(btnObj.GetComponent<RectTransform>());
         }
+    }
+
+    void CreateLockOverlay(Transform parent)
+    {
+        // 1. 전체 버튼 덮는 어두운 오버레이 생성
+        GameObject overlayObj = new GameObject("LockOverlayBackground");
+        overlayObj.transform.SetParent(parent, false);
+        
+        RectTransform overlayRt = overlayObj.AddComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+        // 가장 앞으로 오도록 설정
+        overlayObj.transform.SetAsLastSibling();
+        
+        Image bgImg = overlayObj.AddComponent<Image>();
+        bgImg.color = new Color(0, 0, 0, 0.5f); // 반투명 검정색으로 전체 덮기
+        bgImg.raycastTarget = false;
+
+        // 2. 자물쇠 아이콘
+        GameObject lockObj = new GameObject("LockIcon");
+        lockObj.transform.SetParent(overlayObj.transform, false);
+        
+        RectTransform rt = lockObj.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = new Vector2(80, 80); // 적당한 크기 지정
+        
+        Image img = lockObj.AddComponent<Image>();
+        img.sprite = lockIconSprite;
+        img.preserveAspect = true;
+        img.raycastTarget = false;
     }
 
     void UpdateButtonScales()
@@ -303,15 +360,22 @@ public class StageSelectUI : MonoBehaviour
 
     public void OnStageClicked(int index)
     {
+        bool isTutorial = showTutorialButton && index == 0;
+        if (!isTutorial)
+        {
+            int csvIndex = showTutorialButton ? index - 1 : index;
+            int mapNumber = csvIndex + 1;
+            if (mapNumber > GetUnlockedStage())
+            {
+                // SoundManager.Instance?.PlayCommandClick(); // 필요시 에러 사운드로 교체
+                Debug.Log($"[StageSelectUI] Map {mapNumber}은(는) 아직 잠겨 있습니다!");
+                return; // 잠겨있으면 로드 안함
+            }
+        }
+
         // 중앙에 있는 게 아니라면 클릭 시 중앙으로 이동 (선택 효과)
         if (index != selectedStageIndex)
         {
-            // 사실상 SnapToNearest가 처리하므로, 여기서는 selected만 바꾸고 드래그 해제 효과를 줄 수도 있음
-            // 하지만 현재는 클릭 시 바로 로드하거나 그냥 두거나.
-            // 여기서는 단순히 로그만 찍고, 중앙에 왔을 때 '플레이' 버튼을 따로 두는 게 일반적.
-            // 혹은 더블 클릭이나, 중앙에 온 상태에서 클릭해야 로드되도록.
-            
-            // 일단은 바로 로드하도록 구현 (요청사항엔 명시 안되었지만 일반적인 흐름)
             LoadStage(index);
         }
         else

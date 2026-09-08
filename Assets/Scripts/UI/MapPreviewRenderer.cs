@@ -21,6 +21,23 @@ public class MapPreviewRenderer : MonoBehaviour
     public float minCameraDistance = 5f; // 카메라 최소 거리 (작은 맵이 너무 작게 보이면 이 수치를 줄이세요)
     public float cameraYOffset = 0f;    // 상하 치우침 보정 (플레이 씬의 isometricScreenYOffset과 동일한 역할)
 
+    // 잠긴 스테이지(Stage_00) 표시를 위한 3x3 더미 맵 CSV
+    public const string DummyLockedMapCSV = @"x,z,y,type,extraOption,cost,tags
+0,0,0,Floor,,,
+1,0,0,Floor,,,
+2,0,0,Floor,,,
+0,1,0,Floor,,,
+1,1,0,Floor,,,
+2,1,0,Floor,,,
+0,2,0,Floor,,,
+1,2,0,Floor,,,
+2,2,0,Floor,,,
+1,1,0,Tree,,,
+0,2,0,Box,,,
+2,0,0,Stone,,,
+0,0,0,Start,90,10,
+2,2,0,End,,,";
+
     private List<RenderTexture> activeTextures = new List<RenderTexture>();
     private List<GameObject> activePreviewMaps = new List<GameObject>();
 

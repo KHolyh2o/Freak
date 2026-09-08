@@ -17,6 +17,8 @@ public class SlotDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (playerController != null && playerController.IsExecuting()) return;
+        if (commandList == null || slotIndex >= commandList.Count) return; // 여분 빈칸 드래그 방지
+        if (commandList[slotIndex].type == PlayerController.CommandType.ScopeEnd) return; // ScopeEnd(빨간/파란 점선 빈칸) 드래그 방지
 
         // 원본을 반투명하게 하거나 숨기기
         myCanvasGroup = GetComponent<CanvasGroup>();
@@ -49,11 +51,14 @@ public class SlotDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnDrag(PointerEventData eventData)
     {
+        if (ghostObj == null) return; // 드래그 취소된 상태
         UpdateGhostPosition(eventData);
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        if (ghostObj == null) return; // 드래그 취소된 상태
+
         if (myCanvasGroup != null) myCanvasGroup.alpha = 1f;
         if (ghostObj != null) Destroy(ghostObj);
 

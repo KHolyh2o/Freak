@@ -6,7 +6,7 @@ using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
-    public enum CommandType { Forward, TurnRight, TurnLeft, CallFunction, If, While }
+    public enum CommandType { Forward, TurnRight, TurnLeft, CallFunction, If, While, ScopeEnd }
     public enum ObstacleType { None, Tree, Box, Rock, Cliff }
 
     [System.Serializable]
@@ -17,6 +17,7 @@ public class PlayerController : MonoBehaviour
         public ObstacleType conditionObstacle;
         public bool conditionExpectedState = true; 
         public int innerCommandCount = 0; 
+        public bool isOpen = false; // 다중 수정 모드를 위한 개별 오픈 상태
 
         public CommandBlock(CommandType t) { type = t; }
     }
@@ -59,6 +60,13 @@ public class PlayerController : MonoBehaviour
     [Header("빈 슬롯 배경 (F1, F2, F3)")]
     public Sprite[] emptySlotSprites;
 
+    // 커맨드 블록 중첩(Nesting) 시각화 (UI_Auto_Connector에서 주입됨)
+    [HideInInspector] public Sprite ifBorderSprite;
+    [HideInInspector] public Sprite whileBorderSprite;
+    [HideInInspector] public float nestedScaleFactor = 0.8f;
+    [HideInInspector] public Sprite ifEmptySlotSprite;
+    [HideInInspector] public Sprite whileEmptySlotSprite;
+
     [Header("조건 토글 아이콘 (장애물)")]
     public Sprite obsTreeIcon;
     public Sprite obsBoxIcon;
@@ -80,11 +88,8 @@ public class PlayerController : MonoBehaviour
     private bool isExecuting = false;
     public bool IsExecuting() => isExecuting;
 
-    // --- Scope 수정 상태 ---
-    private bool isEditingScope = false;
-    private int editingScopeStartIndex = -1;
-    private List<CommandBlock> editingScopeList = null;
-    private GameObject editingScopePanel = null;
+    // --- 다중 Scope 수정 상태 ---
+    // (이제 각 블록의 isOpen 속성으로 관리됨)
 
     // --- 편집 및 다중 창 상태 ---
     public int activeListIndex = -1; // -1: 메인, 0: F1, 1: F2, 2: F3
@@ -376,15 +381,23 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        int dropIndex = (insertIndex >= 0 && insertIndex <= targetList.Count) ? insertIndex : targetList.Count;
+
+        UpdateScopeCountsOnInsert(targetList, dropIndex, 1);
+        targetList.Insert(dropIndex, block);
+        
         if (insertIndex >= 0 && insertIndex <= targetList.Count)
         {
-            targetList.Insert(insertIndex, block);
-            insertIndex++; // 연속 삽입을 위해 인덱스 1 증가
+            insertIndex++;
         }
-        else
+
+        if (block.type == CommandType.If || block.type == CommandType.While)
         {
-            targetList.Add(block);
-            insertIndex = -1;
+            block.isOpen = true; // 다중 수정 모드: 추가 시 무조건 열린 상태
+            UpdateScopeCountsOnInsert(targetList, dropIndex + 1, 1);
+            targetList.Insert(dropIndex + 1, new CommandBlock(CommandType.ScopeEnd));
+            
+            insertIndex = dropIndex + 1; // 다음 추가되는 블록이 안으로 들어가도록 설정
         }
 
         SoundManager.Instance?.PlayCommandClick();
@@ -828,6 +841,19 @@ public class PlayerController : MonoBehaviour
             {
                 mapEditor.OnLevelCleared();
             }
+            else
+            {
+                // 정규 스테이지 클리어 시 다음 스테이지 해금
+                int currentStageIdx = PlayerPrefs.GetInt("SelectedStage", 0); // 0부터 시작
+                int currentUnlocked = PlayerPrefs.GetInt("UnlockedStage", 1); // 1부터 시작 (스테이지1)
+                int newlyUnlocked = currentStageIdx + 2; // 클리어한 스테이지의 다음 스테이지 번호
+                
+                if (newlyUnlocked > currentUnlocked)
+                {
+                    PlayerPrefs.SetInt("UnlockedStage", newlyUnlocked);
+                    PlayerPrefs.Save();
+                }
+            }
 
             StopAllCoroutines();
             isExecuting = false;
@@ -856,6 +882,25 @@ public class PlayerController : MonoBehaviour
     private void UpdateIcons(GameObject panel, List<CommandBlock> list)
     {
         if (panel == null || commandSlotPrefab == null) return;
+
+        // 다중 수정 모드 시각화 보정: 열려있는 모든 제어문의 innerCommandCount를 실시간 계산
+        System.Collections.Generic.Stack<int> openStack = new System.Collections.Generic.Stack<int>();
+        for (int i = 0; i < list.Count; i++)
+        {
+            CommandBlock cb = list[i];
+            if ((cb.type == CommandType.If || cb.type == CommandType.While) && cb.isOpen)
+            {
+                openStack.Push(i);
+            }
+            else if (cb.type == CommandType.ScopeEnd)
+            {
+                if (openStack.Count > 0)
+                {
+                    int openIdx = openStack.Pop();
+                    list[openIdx].innerCommandCount = i - openIdx - 1;
+                }
+            }
+        }
 
         int panelListIndex = GetListIndexByPanel(panel);
         Transform targetContent = GetPanelContent(panel);
@@ -888,6 +933,16 @@ public class PlayerController : MonoBehaviour
                         break;
                     case CommandType.If: img.sprite = ifIcon; break;
                     case CommandType.While: img.sprite = whileIcon; break;
+                    case CommandType.ScopeEnd:
+                        // 정확하게 자신의 짝꿍(부모)을 찾아서 스프라이트 결정
+                        int parentIdx = FindMatchingStart(list, cmdIndex);
+                        CommandType parentType = CommandType.If;
+                        if (parentIdx != -1)
+                        {
+                            parentType = list[parentIdx].type;
+                        }
+                        img.sprite = (parentType == CommandType.While) ? whileEmptySlotSprite : ifEmptySlotSprite;
+                        break;
                 }
                 rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
                 
@@ -917,7 +972,14 @@ public class PlayerController : MonoBehaviour
                 
                 rect.sizeDelta = new Vector2(defaultSlotWidth, rect.sizeDelta.y);
                 img.color = Color.white;
+                child.localScale = Vector3.one; // 오브젝트 풀링 재사용 시 크기 초기화
                 ClearSlotEvents(child, panel);
+                
+                // 기존 테두리(액자) 잔재 제거 (오브젝트 풀링 재사용 버그 수정)
+                Transform borderContainer = child.Find("NestingBorders");
+                if (borderContainer != null) Destroy(borderContainer.gameObject);
+                Transform oldContainer = child.Find("NestingBorders_Old");
+                if (oldContainer != null) Destroy(oldContainer.gameObject);
             }
         }
     }
@@ -948,7 +1010,7 @@ public class PlayerController : MonoBehaviour
             if (scopeBtn != null)
             {
                 scopeBtn.onClick.RemoveAllListeners();
-                scopeBtn.onClick.AddListener(() => StartScopeEdit(list, capturedIndex, panel));
+                scopeBtn.onClick.AddListener(() => ToggleScopeEdit(list, capturedIndex, panel));
             }
             
             // Scope_correction 버튼은 If/While 블록일 때만 보여야 합니다.
@@ -994,7 +1056,7 @@ public class PlayerController : MonoBehaviour
             handler.onRightClick.RemoveAllListeners();
             
             handler.onLeftClick.AddListener(() => {
-                if (!isExecuting && !isEditingScope)
+                if (!isExecuting)
                 {
                     SetActivePanelFromSlot(GetListIndexByPanel(panel));
                 }
@@ -1037,26 +1099,144 @@ public class PlayerController : MonoBehaviour
         RefreshAllPanels();
     }
 
-    private void StartScopeEdit(List<CommandBlock> list, int index, GameObject panel)
+    public void ToggleScopeEdit(List<CommandBlock> list, int index, GameObject panel)
     {
         if (isExecuting) return;
+        CommandBlock cb = list[index];
         
-        // 클릭 모드 진입
-        isEditingScope = true;
-        editingScopeStartIndex = index;
-        editingScopeList = list;
-        editingScopePanel = panel;
-        
-        Debug.Log($"[Scope Edit] {index}번 블록의 범위 설정을 시작합니다. 닫을 마지막 블록을 클릭하세요.");
+        if (cb.isOpen) 
+        {
+            CloseScope(list, index);
+        }
+        else
+        {
+            OpenScope(list, index);
+            activeListIndex = GetListIndexByPanel(panel);
+        }
         RefreshAllPanels();
+    }
+
+    private void OpenScope(List<CommandBlock> list, int index)
+    {
+        List<int> toOpen = new List<int>();
+        
+        for (int i = 0; i <= index; i++)
+        {
+            CommandBlock cb = list[i];
+            if (cb.type == CommandType.If || cb.type == CommandType.While)
+            {
+                if (i + cb.innerCommandCount >= index && !cb.isOpen)
+                {
+                    toOpen.Add(i);
+                }
+            }
+        }
+        
+        List<System.Collections.Generic.KeyValuePair<int, int>> insertions = new List<System.Collections.Generic.KeyValuePair<int, int>>();
+        foreach(int i in toOpen)
+        {
+            insertions.Add(new System.Collections.Generic.KeyValuePair<int, int>(i, i + list[i].innerCommandCount + 1));
+        }
+        
+        insertions.Sort((a, b) => b.Value.CompareTo(a.Value));
+        
+        foreach(var kvp in insertions)
+        {
+            list[kvp.Key].isOpen = true;
+            UpdateScopeCountsOnInsert(list, kvp.Value, 1);
+            list.Insert(kvp.Value, new CommandBlock(CommandType.ScopeEnd));
+        }
+        
+        int endIdx = FindMatchingScopeEnd(list, index);
+        if (endIdx != -1) insertIndex = endIdx; 
+    }
+
+    private void CloseScope(List<CommandBlock> list, int index)
+    {
+        int endIndex = FindMatchingScopeEnd(list, index);
+        if (endIndex == -1) return;
+        
+        List<int> scopeEndsToRemove = new List<int>();
+        for (int i = endIndex; i > index; i--)
+        {
+            if (list[i].type == CommandType.ScopeEnd)
+            {
+                scopeEndsToRemove.Add(i);
+            }
+        }
+        
+        foreach (int seIndex in scopeEndsToRemove)
+        {
+            int startIdx = FindMatchingStart(list, seIndex);
+            if (startIdx != -1) list[startIdx].isOpen = false;
+            
+            UpdateScopeCountsOnRemove(list, seIndex, 1);
+            list.RemoveAt(seIndex);
+        }
+        
+        insertIndex = -1;
+    }
+
+    private int FindMatchingScopeEnd(List<CommandBlock> list, int startIndex)
+    {
+        int depth = 0;
+        for (int i = startIndex + 1; i < list.Count; i++)
+        {
+            if (list[i].isOpen && (list[i].type == CommandType.If || list[i].type == CommandType.While))
+                depth++;
+            else if (list[i].type == CommandType.ScopeEnd)
+            {
+                if (depth == 0) return i;
+                depth--;
+            }
+        }
+        return -1;
+    }
+
+    private int FindMatchingStart(List<CommandBlock> list, int endIndex)
+    {
+        int depth = 0;
+        for (int i = endIndex - 1; i >= 0; i--)
+        {
+            if (list[i].type == CommandType.ScopeEnd)
+                depth++;
+            else if (list[i].isOpen && (list[i].type == CommandType.If || list[i].type == CommandType.While))
+            {
+                if (depth == 0) return i;
+                depth--;
+            }
+        }
+        return -1;
     }
 
     private void OnSlotRightClicked(List<CommandBlock> list, int index, GameObject panel)
     {
-        if (isExecuting || isEditingScope) return;
+        if (isExecuting) return;
         
-        list.RemoveAt(index);
-        insertIndex = -1; // 삭제 시 삽입점 초기화
+        CommandBlock block = list[index];
+        int chunkSize = 1;
+        
+        if (block.type == CommandType.If || block.type == CommandType.While)
+        {
+            if (block.isOpen) CloseScope(list, index);
+            chunkSize = 1 + block.innerCommandCount;
+        }
+        else if (block.type == CommandType.ScopeEnd)
+        {
+            // ScopeEnd를 직접 우클릭해서 지우면 편집 종료로 취급
+            int startIdx = FindMatchingStart(list, index);
+            if (startIdx != -1) CloseScope(list, startIdx);
+            return;
+        }
+
+        UpdateScopeCountsOnRemove(list, index, chunkSize);
+        list.RemoveRange(index, chunkSize);
+
+        if (panel == commandSequencePanel && insertIndex > index)
+        {
+            insertIndex = Mathf.Max(0, insertIndex - chunkSize);
+        }
+        
         SoundManager.Instance?.PlayCommandClick();
         RefreshAllPanels();
     }
@@ -1065,27 +1245,8 @@ public class PlayerController : MonoBehaviour
     {
         if (isExecuting) return;
 
-        if (isEditingScope && editingScopeList == list && panel == editingScopePanel)
-        {
-            if (index >= editingScopeStartIndex)
-            {
-                int scopeSize = index - editingScopeStartIndex;
-                editingScopeList[editingScopeStartIndex].innerCommandCount = scopeSize;
-                isEditingScope = false;
-                insertIndex = index + 1; // 범위 설정 후 그 다음 위치에 커맨드가 들어가도록 자동 설정
-                RefreshAllPanels();
-            }
-            else
-            {
-                Debug.LogWarning("[Scope Edit] 마지막 블록은 시작 블록(If/While)보다 뒤에 있어야 합니다.");
-            }
-        }
-        else if (!isEditingScope)
-        {
-            activeListIndex = GetListIndexByPanel(panel);
-            // insertIndex = index; // <--- 중간 삽입 위치 지정(클릭) 기능 삭제! 이제 무조건 맨 끝에 추가됩니다.
-            RefreshAllPanels();
-        }
+        activeListIndex = GetListIndexByPanel(panel);
+        RefreshAllPanels();
     }
 
     private int GetListIndexByPanel(GameObject panel)
@@ -1106,22 +1267,17 @@ public class PlayerController : MonoBehaviour
         CommandBlock block = list[index];
         img.color = Color.white; 
 
-        // 범위 수정 모드 하이라이트
-        if (isEditingScope && list == editingScopeList && index == editingScopeStartIndex)
-        {
-            img.color = Color.yellow; 
-            return;
-        }
+        // 범위 수정 모드 하이라이트 (제거됨 - 노란색 변경 없음)
 
         // 삽입 지점(Insert Target) 하이라이트 (빨간색)
         int listIndex = GetListIndexByPanel(panel);
-        if (!isEditingScope && listIndex == activeListIndex && index == insertIndex)
+        if (listIndex == activeListIndex && index == insertIndex)
         {
             img.color = new Color(1f, 0.7f, 0.7f); // 연한 빨간색
         }
 
-        // 다른 블록의 Scope(테두리) 안에 속해있는지 확인
-        bool isInsideScope = false;
+        // 중첩 스택(Nesting Stack) 계산
+        List<CommandType> nestingStack = new List<CommandType>();
         for (int i = 0; i < index; i++)
         {
             CommandBlock prev = list[i];
@@ -1129,15 +1285,56 @@ public class PlayerController : MonoBehaviour
             {
                 if (i + prev.innerCommandCount >= index)
                 {
-                    isInsideScope = true;
-                    break;
+                    nestingStack.Add(prev.type);
                 }
             }
         }
 
-        if (isInsideScope)
+        int depth = nestingStack.Count;
+        
+        // 2. 테두리(액자) 컨테이너 세팅 (기존 것이 있으면 충돌 방지를 위해 이름 변경 후 파괴)
+        Transform oldContainer = child.Find("NestingBorders");
+        if (oldContainer != null)
         {
-            img.color = new Color(0.8f, 0.9f, 1f); // 약간 파란색 틴트 (If/While 범위 내부에 있음)
+            oldContainer.name = "NestingBorders_Old";
+            Destroy(oldContainer.gameObject);
+        }
+
+        // 1. 중첩 깊이에 따른 전체 스케일 축소
+        child.localScale = Vector3.one * Mathf.Pow(nestedScaleFactor, depth);
+
+        GameObject bcObj = new GameObject("NestingBorders", typeof(RectTransform));
+        RectTransform borderContainer = bcObj.GetComponent<RectTransform>();
+        borderContainer.SetParent(child, false);
+        borderContainer.SetAsFirstSibling(); // 메인 아이콘 바로 위에 렌더링
+        
+        // 컨테이너 크기를 슬롯(child)과 정확히 동일하게 맞춥니다.
+        borderContainer.anchorMin = Vector2.zero;
+        borderContainer.anchorMax = Vector2.one;
+        borderContainer.offsetMin = Vector2.zero;
+        borderContainer.offsetMax = Vector2.zero;
+
+        // 3. 중첩된 각 제어문에 대해 테두리 생성 및 스케일업
+        for (int i = 0; i < depth; i++)
+        {
+            // typeof(RectTransform)을 넣어 생성해야 기존 Transform이 파괴되어 발생하는 에러를 막을 수 있습니다.
+            GameObject bObj = new GameObject("Border_" + i, typeof(RectTransform));
+            Transform borderTr = bObj.transform;
+            borderTr.SetParent(borderContainer, false);
+            
+            RectTransform rt = borderTr as RectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            
+            Image borderImg = bObj.AddComponent<Image>();
+            borderImg.raycastTarget = false;
+            borderImg.sprite = (nestingStack[i] == CommandType.If) ? ifBorderSprite : whileBorderSprite;
+            
+            // child가 작아졌으므로, 바깥쪽 테두리일수록 더 크게 역보정(Scale Up) 해줍니다.
+            float scaleUp = Mathf.Pow(nestedScaleFactor, i - depth);
+            borderTr.localScale = Vector3.one * scaleUp;
         }
 
         // -------------------------
@@ -1183,12 +1380,23 @@ public class PlayerController : MonoBehaviour
         tr.localScale = highlight ? Vector3.one * highlightScale : Vector3.one;
     }
 
+    private int GetListCost(List<CommandBlock> list)
+    {
+        int count = 0;
+        foreach (var block in list)
+        {
+            if (block.type != CommandType.ScopeEnd) count++;
+        }
+        return count;
+    }
+
     private int GetCurrentCost()
     {
-        int total = mainCommandList.Count;
+        int total = GetListCost(mainCommandList);
         foreach (var funcList in functionLists)
         {
-            if (funcList.Count > 0) total += 1 + funcList.Count;
+            int funcCost = GetListCost(funcList);
+            if (funcCost > 0) total += 1 + funcCost;
         }
         return total;
     }
@@ -1202,6 +1410,47 @@ public class PlayerController : MonoBehaviour
     }
 
 
+
+    // ---------------------------------------------------------
+    // 제어문(If/While) 범위 내 블록 삽입/삭제 시 카운트 자동 보정
+    // ---------------------------------------------------------
+    private void UpdateScopeCountsOnInsert(List<CommandBlock> list, int dropIndex, int count)
+    {
+        for (int i = 0; i < dropIndex; i++)
+        {
+            CommandBlock cb = list[i];
+            if (cb.type == CommandType.If || cb.type == CommandType.While)
+            {
+                int scopeEndIndex = i + cb.innerCommandCount;
+                if (scopeEndIndex >= dropIndex)
+                {
+                    cb.innerCommandCount += count;
+                }
+            }
+        }
+    }
+
+    private void UpdateScopeCountsOnRemove(List<CommandBlock> list, int originIndex, int count)
+    {
+        for (int i = 0; i < originIndex; i++)
+        {
+            CommandBlock cb = list[i];
+            if (cb.type == CommandType.If || cb.type == CommandType.While)
+            {
+                int scopeEndIndex = i + cb.innerCommandCount;
+                if (scopeEndIndex >= originIndex)
+                {
+                    int overlapStart = originIndex;
+                    int overlapEnd = originIndex + count - 1;
+                    int effectiveOverlapEnd = Mathf.Min(overlapEnd, scopeEndIndex);
+                    if (effectiveOverlapEnd >= overlapStart)
+                    {
+                        cb.innerCommandCount -= (effectiveOverlapEnd - overlapStart + 1);
+                    }
+                }
+            }
+        }
+    }
 
     // ---------------------------------------------------------
     // 드래그 앤 드롭 지원 (Drag & Drop)
@@ -1265,11 +1514,22 @@ public class PlayerController : MonoBehaviour
                 int dropIndex = Mathf.RoundToInt((localPoint.x - startLocalPos.x) / intervalX);
                 dropIndex = Mathf.Clamp(dropIndex, 0, targetList.Count);
 
+                UpdateScopeCountsOnInsert(targetList, dropIndex, 1);
                 targetList.Insert(dropIndex, block);
                 
                 if (listIndex == activeListIndex && insertIndex >= dropIndex)
                 {
                     insertIndex++;
+                }
+
+                if (block.type == CommandType.If || block.type == CommandType.While)
+                {
+                    block.isOpen = true;
+                    // ScopeEnd를 하나 더 추가
+                    UpdateScopeCountsOnInsert(targetList, dropIndex + 1, 1);
+                    targetList.Insert(dropIndex + 1, new CommandBlock(CommandType.ScopeEnd));
+                    
+                    insertIndex = dropIndex + 1; // 수정 모드 돌입 시 클릭 추가가 안으로 들어가도록 설정
                 }
                 
                 RefreshAllPanels();
@@ -1311,18 +1571,22 @@ public class PlayerController : MonoBehaviour
         {
             if (originIndex >= 0 && originIndex < originList.Count)
             {
-                originList.RemoveAt(originIndex);
+                CommandBlock block = originList[originIndex];
+                int chunkSize = 1;
+                
+                if (block.type == CommandType.If || block.type == CommandType.While)
+                {
+                    if (block.isOpen) CloseScope(originList, originIndex);
+                    chunkSize = 1 + block.innerCommandCount;
+                }
+                
+                UpdateScopeCountsOnRemove(originList, originIndex, chunkSize);
+                originList.RemoveRange(originIndex, chunkSize);
                 
                 int panelIdx = GetListIndexByPanel(originPanel);
                 if (panelIdx == activeListIndex)
                 {
                     insertIndex = -1; // 삭제 시 삽입점 초기화
-                }
-                
-                if (isEditingScope && editingScopeList == originList)
-                {
-                    isEditingScope = false;
-                    editingScopeList = null;
                 }
 
                 RefreshAllPanels();
@@ -1359,10 +1623,25 @@ public class PlayerController : MonoBehaviour
                     
                     int dropIndex = Mathf.RoundToInt((localPoint.x - startLocalPos.x) / intervalX);
                     
-                    originList.RemoveAt(originIndex);
+                    int chunkSize = 1;
+                    if (blockToMove.type == CommandType.If || blockToMove.type == CommandType.While)
+                    {
+                        if (blockToMove.isOpen) CloseScope(originList, originIndex);
+                        chunkSize = 1 + blockToMove.innerCommandCount;
+                    }
+                    
+                    UpdateScopeCountsOnRemove(originList, originIndex, chunkSize);
+                    List<CommandBlock> chunk = originList.GetRange(originIndex, chunkSize);
+                    originList.RemoveRange(originIndex, chunkSize);
+                    
+                    if (originList == targetList && originIndex < dropIndex)
+                    {
+                        dropIndex -= chunkSize;
+                    }
                     
                     dropIndex = Mathf.Clamp(dropIndex, 0, targetList.Count);
-                    targetList.Insert(dropIndex, blockToMove);
+                    UpdateScopeCountsOnInsert(targetList, dropIndex, chunkSize);
+                    targetList.InsertRange(dropIndex, chunk);
 
                     RefreshAllPanels();
                     UpdateLimitText();

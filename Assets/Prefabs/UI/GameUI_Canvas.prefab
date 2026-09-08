@@ -286,6 +286,11 @@ MonoBehaviour:
   commandType: 0
   callFunctionIndex: -1
   conditionObstacle: 0
+  requiredUnlockStage: 1
+  lockIconSprite: {fileID: 0}
+  useDebugUnlockStage: 0
+  debugUnlockStage: 1
+  objectsToDisableWhenLocked: []
 --- !u!1 &487549931480070292
 GameObject:
   m_ObjectHideFlags: 0
@@ -629,6 +634,11 @@ MonoBehaviour:
   successPanel: {fileID: 511475740196652011}
   limitText: {fileID: 7528046976429513788}
   limitBox: {fileID: 691170551214587883}
+  ifBorderSprite: {fileID: 21300000, guid: 30c077edb8c8e420f88fe2299470b7b3, type: 3}
+  whileBorderSprite: {fileID: 21300000, guid: 8ee733ddafce64e91982ce02f6cd206e, type: 3}
+  nestedScaleFactor: 0.8
+  ifEmptySlotSprite: {fileID: 21300000, guid: a99f767c800764015abf3f7765630ca1, type: 3}
+  whileEmptySlotSprite: {fileID: 21300000, guid: d9b3a141a0788489d90807e49c78feb6, type: 3}
   inGameUIGroup: {fileID: 1514621341572641647}
   pausePanel: {fileID: 8981911057731607364}
   settingsButton: {fileID: 4164708964363282160}
@@ -2027,6 +2037,14 @@ MonoBehaviour:
   commandType: 3
   callFunctionIndex: -1
   conditionObstacle: 0
+  requiredUnlockStage: 1
+  lockIconSprite: {fileID: 21300000, guid: da2a8add14f5c4d6d911ae9b60c089c2, type: 3}
+  useDebugUnlockStage: 0
+  debugUnlockStage: 1
+  objectsToDisableWhenLocked:
+  - {fileID: 1222130244459995165}
+  - {fileID: 793518908295152038}
+  - {fileID: 2213449444292277366}
 --- !u!1 &1851832953322876012
 GameObject:
   m_ObjectHideFlags: 0
@@ -2238,6 +2256,11 @@ MonoBehaviour:
   commandType: 4
   callFunctionIndex: -1
   conditionObstacle: 0
+  requiredUnlockStage: 1
+  lockIconSprite: {fileID: 21300000, guid: da2a8add14f5c4d6d911ae9b60c089c2, type: 3}
+  useDebugUnlockStage: 0
+  debugUnlockStage: 1
+  objectsToDisableWhenLocked: []
 --- !u!1 &2048555958347155161
 GameObject:
   m_ObjectHideFlags: 0
@@ -4843,6 +4866,11 @@ MonoBehaviour:
   commandType: 1
   callFunctionIndex: -1
   conditionObstacle: 0
+  requiredUnlockStage: 1
+  lockIconSprite: {fileID: 0}
+  useDebugUnlockStage: 0
+  debugUnlockStage: 1
+  objectsToDisableWhenLocked: []
 --- !u!1 &4485587301621604960
 GameObject:
   m_ObjectHideFlags: 0
@@ -7186,6 +7214,11 @@ MonoBehaviour:
   commandType: 5
   callFunctionIndex: -1
   conditionObstacle: 0
+  requiredUnlockStage: 1
+  lockIconSprite: {fileID: 21300000, guid: da2a8add14f5c4d6d911ae9b60c089c2, type: 3}
+  useDebugUnlockStage: 0
+  debugUnlockStage: 1
+  objectsToDisableWhenLocked: []
 --- !u!1 &7387143324381581458
 GameObject:
   m_ObjectHideFlags: 0
@@ -9049,3 +9082,8 @@ MonoBehaviour:
   commandType: 2
   callFunctionIndex: -1
   conditionObstacle: 0
+  requiredUnlockStage: 1
+  lockIconSprite: {fileID: 0}
+  useDebugUnlockStage: 0
+  debugUnlockStage: 1
+  objectsToDisableWhenLocked: []

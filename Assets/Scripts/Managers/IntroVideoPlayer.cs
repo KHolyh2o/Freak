@@ -54,7 +54,7 @@ public class IntroVideoPlayer : MonoBehaviour
     void Update()
     {
         // (선택 기능) 마우스를 클릭하거나 아무 키나 누르면 영상을 스킵하고 넘어갑니다.
-        if (Input.GetMouseButtonDown(0) || Input.anyKeyDown)
+        if (GameInput.PointerDown(0) || GameInput.AnyKeyDown)
         {
             LoadNextScene();
         }

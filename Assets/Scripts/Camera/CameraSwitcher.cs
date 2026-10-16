@@ -271,8 +271,7 @@ public class CameraSwitcher : MonoBehaviour
 
         if (UnityEngine.EventSystems.EventSystem.current == null) return false;
         
-        Vector2 pos = Input.mousePosition;
-        if (Input.touchCount > 0) pos = Input.GetTouch(0).position;
+        Vector2 pos = GameInput.PointerPosition;
 
         var pointerData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
         {
@@ -306,7 +305,7 @@ public class CameraSwitcher : MonoBehaviour
 
     private void HandleIsometricDrag()
     {
-        if (Input.GetMouseButtonDown(dragMouseButton))
+        if (GameInput.PointerDown(dragMouseButton))
         {
             if (IsPointerOverUI())
             {
@@ -316,14 +315,14 @@ public class CameraSwitcher : MonoBehaviour
             else
             {
                 _isDraggingCamera = true;
-                _previousMousePos = Input.mousePosition;
+                _previousMousePos = GameInput.PointerPosition;
                 _currentDragMode = DragMode.Determining;
                 _dragAccumulator = Vector2.zero;
             }
         }
-        else if (Input.GetMouseButton(dragMouseButton) && _isDraggingCamera)
+        else if (GameInput.Pointer(dragMouseButton) && _isDraggingCamera)
         {
-            Vector3 mousePos = Input.mousePosition;
+            Vector3 mousePos = GameInput.PointerPosition;
             Vector3 mouseDelta = mousePos - _previousMousePos;
             _previousMousePos = mousePos;
 
@@ -360,7 +359,7 @@ public class CameraSwitcher : MonoBehaviour
                 ApplyIsometricCameraTransform();
             }
         }
-        else if (Input.GetMouseButtonUp(dragMouseButton))
+        else if (GameInput.PointerUp(dragMouseButton))
         {
             _isDraggingCamera = false;
             _currentDragMode = DragMode.None;

@@ -42,7 +42,7 @@ public class SettingsManager : MonoBehaviour
     private void Update()
     {
         // 글로벌 ESC 키 감지 (플레이 씬 제외 - 플레이 씬은 GameManager가 담당)
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (GameInput.KeyDown(KeyCode.Escape))
         {
             string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
             bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";

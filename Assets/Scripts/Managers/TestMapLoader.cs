@@ -37,7 +37,7 @@ public class TestMapLoader : MonoBehaviour
     void Update()
     {
         // 스페이스바를 누를 때마다 카메라 시점이 순차적으로 바뀜
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (GameInput.KeyDown(KeyCode.Space))
         {
             if (cameraSwitcher != null)
             {

@@ -32,7 +32,7 @@ namespace Showroom
             // 플레이어가 가까이 있을 때 Space바 입력 처리
             if (playerTransform != null && Vector3.Distance(transform.position, playerTransform.position) <= interactDistance)
             {
-                if (Input.GetKeyDown(KeyCode.Space))
+                if (GameInput.KeyDown(KeyCode.Space))
                 {
                     LoadStage();
                 }

@@ -89,7 +89,7 @@ public class MapEditor : MonoBehaviour
         }
 
         // 마우스 레이캐스트
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Ray ray = Camera.main.ScreenPointToRay(GameInput.PointerPosition);
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, 100f, groundLayer))
@@ -107,12 +107,12 @@ public class MapEditor : MonoBehaviour
             }
 
             // [좌클릭] 설치
-            if (Input.GetMouseButton(0))
+            if (GameInput.Pointer(0))
             {
                 PlaceBlock(new Vector2Int(x, z), finalPos);
             }
             // [우클릭] 삭제
-            else if (Input.GetMouseButton(1))
+            else if (GameInput.Pointer(1))
             {
                 RemoveBlock(new Vector2Int(x, z));
             }

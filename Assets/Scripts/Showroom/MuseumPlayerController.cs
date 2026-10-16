@@ -69,8 +69,8 @@ namespace Showroom
         void Update()
         {
             // 입력값만 받아옵니다.
-            currentH = Input.GetAxisRaw("Horizontal");
-            currentV = Input.GetAxisRaw("Vertical");
+            currentH = GameInput.GetAxisRaw("Horizontal");
+            currentV = GameInput.GetAxisRaw("Vertical");
             
             // 만약 Rigidbody가 없다면 (물리 연산 불가 상태) Update에서 임시로 움직입니다.
             if (rb == null)

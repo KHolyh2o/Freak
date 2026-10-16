@@ -27,7 +27,7 @@ public class GameManager : MonoBehaviour
 
         if (isPlayScene)
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (GameInput.KeyDown(KeyCode.Escape))
             {
                 if (isPaused) ResumeGame();
                 else PauseGame();

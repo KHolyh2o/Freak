@@ -16,7 +16,7 @@ public class StageSelectUI : MonoBehaviour
     public int totalStages = 15;
     public float centerScale = 1.2f; // 중앙 아이템 확대 배율
     public float sideScale = 0.8f;   // 주변 아이템 축소 배율
-    public float snapSpeed = 10f;    // 스냅 속도 (높을수록 빠름)
+    public float snapSpeed = 5f;     // 스냅 속도 (높을수록 중앙으로 강하게 당김)
     public float buttonSpacing = 200f; // 버튼 간격 (임시, LayoutGroup 사용 시 무시됨)
 
     [Header("잠금(Lock) 설정")]
@@ -28,6 +28,9 @@ public class StageSelectUI : MonoBehaviour
     private bool isDragging = false;
     private float[] distances; // 각 버튼의 중심까지 거리
     private int selectedStageIndex = 0;
+    [Header("스크롤 감각")]
+    public float decelerationRate = 0.3f;   // 낮을수록 빨리 멈춤, 높을수록 오래 미끄러짐 (Unity 기본 0.135)
+    public float snapStartVelocity = 250f;  // 이 속도 아래로 줄어들면 중앙 정렬을 서서히 시작 (px/s)
 
     void Start()
     {
@@ -72,6 +75,11 @@ public class StageSelectUI : MonoBehaviour
         listener.scrollRect = scrollRect;
         listener.onBeginDrag = () => { isDragging = true; };
         listener.onEndDrag = () => { isDragging = false; };
+
+        // 놓은 뒤 관성으로 미끄러지다가, 속도가 줄어들면 SnapToNearest가 서서히 중앙으로 맞춘다
+        scrollRect.inertia = true;
+        scrollRect.decelerationRate = decelerationRate;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
     }
 
     void AddPaddingForCentering()
@@ -121,8 +129,8 @@ public class StageSelectUI : MonoBehaviour
 
         UpdateButtonScales();
 
-        // 사용자가 터치 중(isDragging)이 아니며, 스크롤 관성 속도가 충분히 줄어들었을 때만 중앙 정렬(Snap) 실행
-        if (!isDragging && Mathf.Abs(scrollRect.velocity.x) < 50f)
+        // 누르고 있는 동안(드래그 판정 전 포함)에는 당기지 않고, 관성이 충분히 줄어든 뒤에만 정렬
+        if (!isDragging && !GameInput.Pointer(0))
         {
             SnapToNearest();
         }
@@ -303,12 +311,9 @@ public class StageSelectUI : MonoBehaviour
         }
     }
 
-    void SnapToNearest()
+    int FindNearestIndex()
     {
-        // Viewport(또는 ScrollRect)의 중앙 월드 좌표
-        float viewportCenter = scrollRect.transform.position.x; 
-
-        // 가장 가까운 버튼 찾기
+        float viewportCenter = scrollRect.transform.position.x;
         float minDistance = float.MaxValue;
         int minIndex = 0;
 
@@ -321,30 +326,38 @@ public class StageSelectUI : MonoBehaviour
                 minIndex = i;
             }
         }
+        return minIndex;
+    }
 
-        selectedStageIndex = minIndex;
+    void SnapToNearest()
+    {
+        float speed = Mathf.Abs(scrollRect.velocity.x);
 
-        // 목표: 선택된 버튼(world X)을 뷰포트 중앙(world X)으로 이동
-        // 현재 오차 = ViewportCenter - ButtonCenter (World Space)
-        float diffWorld = viewportCenter - stageButtons[minIndex].position.x;
+        // 아직 빠르게 미끄러지는 중이면 관성에 맡긴다
+        if (speed >= snapStartVelocity) return;
 
-        // 월드 좌표 오차를 로컬 좌표계 오차로 변환 (UI 캔버스 스케일 보정)
+        int nearest = FindNearestIndex();
+        selectedStageIndex = nearest;
+
+        float viewportCenter = scrollRect.transform.position.x;
+        float diffWorld = viewportCenter - stageButtons[nearest].position.x;
         float diffLocal = diffWorld / contentPanel.lossyScale.x;
 
-        // Content의 현재 위치에서 로컬 오차를 더함
-        float targetX = contentPanel.anchoredPosition.x + diffLocal;
-        
-        // *중요* 만약 오차가 아주 작으면(스냅 완료) 계산 중지 (떨림 방지)
-        if (Mathf.Abs(diffLocal) < 0.1f) 
+        Vector2 pos = contentPanel.anchoredPosition;
+
+        if (Mathf.Abs(diffLocal) < 0.1f)
         {
-            contentPanel.anchoredPosition = new Vector2(targetX, contentPanel.anchoredPosition.y);
-            scrollRect.velocity = Vector2.zero; // 완벽히 멈춤
+            pos.x += diffLocal;
+            contentPanel.anchoredPosition = pos;
+            scrollRect.velocity = Vector2.zero;
             return;
         }
 
-        Vector2 newPos = contentPanel.anchoredPosition;
-        newPos.x = Mathf.Lerp(contentPanel.anchoredPosition.x, targetX, Time.deltaTime * snapSpeed);
-        contentPanel.anchoredPosition = newPos;
+        // 속도가 낮을수록 강하게 당긴다 (속도가 threshold에 가까우면 거의 0 → 미끄러지는 느낌 유지)
+        float ramp = 1f - Mathf.Clamp01(speed / snapStartVelocity);
+        float t = (1f - Mathf.Exp(-snapSpeed * Time.unscaledDeltaTime)) * ramp * ramp;
+        pos.x += diffLocal * t;
+        contentPanel.anchoredPosition = pos;
     }
 
     // ScrollRect 이벤트 (EventTrigger 등으로 연결 필요)
@@ -438,6 +451,7 @@ public class DragListener : MonoBehaviour, IBeginDragHandler, IEndDragHandler, I
     public ScrollRect scrollRect;
     public System.Action onBeginDrag;
     public System.Action onEndDrag;
+    public System.Action<PointerEventData> onDrag;
 
     public void OnBeginDrag(PointerEventData eventData)
     {
@@ -447,6 +461,7 @@ public class DragListener : MonoBehaviour, IBeginDragHandler, IEndDragHandler, I
     
     public void OnDrag(PointerEventData eventData)
     {
+        onDrag?.Invoke(eventData);
         if (scrollRect != null) scrollRect.OnDrag(eventData);
     }
 

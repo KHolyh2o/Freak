@@ -1457,7 +1457,7 @@ MonoBehaviour:
   totalStages: 15
   centerScale: 1.2
   sideScale: 0.8
-  snapSpeed: 10
+  snapSpeed: 5
   buttonSpacing: 40
   lockIconSprite: {fileID: 21300000, guid: da2a8add14f5c4d6d911ae9b60c089c2, type: 3}
   useDebugUnlockStage: 0

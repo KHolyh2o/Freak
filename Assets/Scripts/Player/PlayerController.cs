@@ -293,9 +293,12 @@ public class PlayerController : MonoBehaviour
         ResetPlayer();
     }
 
+    // VR에서는 패널이 위아래로 오르내리는 연출을 끄고 항상 '내려간'(원래) 위치에 고정한다.
+    private bool PanelsUp => isPanelsUp && !PlatformRigSwitcher.IsXR;
+
     private void SnapPanelsToTarget()
     {
-        float offset = isPanelsUp ? panelSlideOffset : 0f;
+        float offset = PanelsUp ? panelSlideOffset : 0f;
         foreach (var kvp in panelOriginalPos)
         {
             if (kvp.Key == null) continue;
@@ -303,7 +306,7 @@ public class PlayerController : MonoBehaviour
             if (rt == null) continue;
             
             Vector2 targetPos = kvp.Value;
-            if (isPanelsUp && (kvp.Key == limitBox || (limitText != null && kvp.Key == limitText.gameObject)))
+            if (PanelsUp && (kvp.Key == limitBox || (limitText != null && kvp.Key == limitText.gameObject)))
             {
                 targetPos = new Vector2(0f, kvp.Value.y + 40f);
             }
@@ -311,7 +314,7 @@ public class PlayerController : MonoBehaviour
             {
                 targetPos.y += offset;
             }
-            
+
             rt.anchoredPosition = targetPos;
         }
     }
@@ -324,7 +327,7 @@ public class PlayerController : MonoBehaviour
     private void UpdatePanelSlide()
     {
         if (panelOriginalPos.Count == 0) return;
-        float targetOffset = isPanelsUp ? panelSlideOffset : 0f;
+        float targetOffset = PanelsUp ? panelSlideOffset : 0f;
 
         foreach (var kvp in panelOriginalPos)
         {
@@ -334,8 +337,8 @@ public class PlayerController : MonoBehaviour
             
             Vector2 pos = rt.anchoredPosition;
             Vector2 targetPos = kvp.Value;
-            
-            if (isPanelsUp && (kvp.Key == limitBox || (limitText != null && kvp.Key == limitText.gameObject)))
+
+            if (PanelsUp && (kvp.Key == limitBox || (limitText != null && kvp.Key == limitText.gameObject)))
             {
                 targetPos = new Vector2(0f, kvp.Value.y + 40f);
             }

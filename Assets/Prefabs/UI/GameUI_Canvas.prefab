@@ -681,9 +681,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03d4d394c66f64823a6aae5b4dd1f9ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panelWidth: 0.7
-  distance: 0.55
-  below: 0.1
+  panelWidth: 1.5
+  distance: 0.8
+  below: 0
 --- !u!1 &687664969954839186
 GameObject:
   m_ObjectHideFlags: 0

@@ -71,7 +71,7 @@ public class CameraSwitcher : MonoBehaviour
         _defaultFOV = _mainCam.fieldOfView;
 
         // ★ [튜토리얼 예외 처리] Stage_00 씬일 경우 높이 오프셋을 0.8로 고정
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Stage_00")
+        if (SceneFlow.Current == SceneIds.Tutorial)
         {
             isometricScreenYOffset = 0.8f;
         }
@@ -200,6 +200,17 @@ public class CameraSwitcher : MonoBehaviour
                 _mainCam.fieldOfView = callbackTarget.fieldOfView;
             }
         }
+
+        // VR 모드에서는 XR Origin의 카메라만 화면을 그려야 하므로, 이 카메라 매니저 하위의
+        // 모든 카메라(런타임 생성되는 SkyCam 포함)와 오디오 리스너를 끈다.
+        if (PlatformRigSwitcher.IsXR) DisableCamerasForXR();
+    }
+
+    private void DisableCamerasForXR()
+    {
+        foreach (var cam in GetComponentsInChildren<Camera>(true)) cam.enabled = false;
+        foreach (var listener in GetComponentsInChildren<AudioListener>(true)) listener.enabled = false;
+        Debug.Log("[CameraSwitcher] XR 모드: 데스크톱 카메라와 오디오 리스너를 비활성화했습니다.");
     }
 
     // 비동적 카메라 전환 후 카메라가 고정될 좌표를 저장

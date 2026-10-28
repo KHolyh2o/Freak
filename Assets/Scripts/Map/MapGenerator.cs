@@ -175,6 +175,12 @@ public class MapGenerator : MonoBehaviour
                 Debug.LogWarning("[MapGenerator] CameraSwitcher가 연결되어 있지 않아 카메라 자동 세팅을 건너뜁니다.");
             }
 
+            // VR 미니어처 뷰 정렬 (XR Origin이 활성일 때만 Instance가 존재)
+            if (VRMapViewer.Instance != null)
+            {
+                VRMapViewer.Instance.Align(mapCenter, mapWidth, mapDepth);
+            }
+
             // 4. 플레이어 컨트롤러 업데이트 (맵 생성이 완료된 후 실행)
             PlayerController pc = FindObjectOfType<PlayerController>();
             if (pc != null && spawnedStartBox != null)

@@ -14,6 +14,13 @@ public class IntroVideoPlayer : MonoBehaviour
 
     void Start()
     {
+        // VR에서는 카메라 근접면 영상이 양쪽 눈에 달라붙어 멀미를 유발하므로 인트로를 건너뛴다.
+        if (XRMode.Wanted)
+        {
+            LoadNextScene();
+            return;
+        }
+
         // VideoPlayer 컴포넌트가 연결되어 있지 않다면 자기 자신에게서 찾습니다.
         if (videoPlayer == null)
             videoPlayer = GetComponent<VideoPlayer>();
@@ -75,7 +82,7 @@ public class IntroVideoPlayer : MonoBehaviour
         if (videoPlayer != null)
             videoPlayer.loopPointReached -= OnVideoEnd;
             
-        SceneManager.LoadScene(nextSceneName);
+        SceneFlow.Load(nextSceneName);
     }
 }
 

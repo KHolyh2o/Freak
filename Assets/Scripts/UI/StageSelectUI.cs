@@ -399,26 +399,20 @@ public class StageSelectUI : MonoBehaviour
 
     void LoadStage(int index)
     {
-        // 일반 스테이지 선택 화면에서 진입할 경우 쇼룸 복귀 플래그를 꺼줍니다.
-        PlayerPrefs.SetInt("ReturnToShowroom", 0);
-        
         bool isTutorial = showTutorialButton && index == 0;
 
         if (isTutorial)
         {
             Debug.Log("[StageSelectUI] 튜토리얼 선택 → Stage_00 씬으로 이동");
             // 튜토리얼 전용 씬
-            SceneManager.LoadScene("Stage_00");
+            SceneFlow.ToTutorial();
         }
         else
         {
-            // 선택된 스테이지 번호를 저장 (Play 씬의 TestMapLoader가 읽어감, 0-indexed)
-            int mapNumber = showTutorialButton ? index - 1 : index; 
-            PlayerPrefs.SetInt("SelectedStage", mapNumber);
-            PlayerPrefs.Save();
-            
+            // 선택된 스테이지 번호를 저장하고 Play 씬으로 (Play 씬의 TestMapLoader가 읽어감, 0-indexed)
+            int mapNumber = showTutorialButton ? index - 1 : index;
             Debug.Log($"[StageSelectUI] 스테이지 {mapNumber} 선택 → Play 씬으로 이동");
-            SceneManager.LoadScene("Play");
+            SceneFlow.ToStage(mapNumber);
         }
     }
 
@@ -426,7 +420,7 @@ public class StageSelectUI : MonoBehaviour
     {
         SoundManager.Instance?.PlayCommandClick();
         Debug.Log("[StageSelectUI] 뒤로 가기 선택 → Start 씬으로 이동");
-        SceneManager.LoadScene("Start");
+        SceneFlow.ToStart();
     }
 
     [Header("설정창 (선택사항)")]

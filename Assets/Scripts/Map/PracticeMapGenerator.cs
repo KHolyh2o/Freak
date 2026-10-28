@@ -16,20 +16,8 @@ public class PracticeMapGenerator : MonoBehaviour
 
     public void GenerateAndSavePracticeMap(string missingSkill)
     {
-        // 1. 필요한 스킬을 저장해 둡니다.
-        PlayerPrefs.SetString("PracticeSkill", missingSkill);
-        PlayerPrefs.Save();
-        
-        // 2. Practice 씬으로 이동합니다.
-        SceneController sc = FindObjectOfType<SceneController>();
-        if (sc != null)
-        {
-            sc.ChangeScene("Practice");
-        }
-        else
-        {
-            SceneManager.LoadScene("Practice");
-        }
+        // 필요한 스킬을 저장하고 Practice 씬으로 이동합니다. 클리어 후에는 지금 씬으로 돌아옵니다.
+        SceneFlow.ToPractice(missingSkill);
     }
 
     public string GeneratePracticeMapCSV(string missingSkill)

@@ -15,7 +15,7 @@ public class TestMapLoader : MonoBehaviour
 
         if (mapGenerator != null)
         {
-            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Practice")
+            if (SceneFlow.Current == SceneIds.Practice)
             {
                 // Practice 씬일 경우 CSV 문자열 생성 및 로드
                 string missingSkill = PlayerPrefs.GetString("PracticeSkill", "Spatial");

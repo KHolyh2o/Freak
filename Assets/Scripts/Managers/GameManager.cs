@@ -21,11 +21,8 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        string sceneName = SceneManager.GetActiveScene().name;
-        // main, Intro, MuseumHub 등 비플레이 씬을 제외한 모든 플레이 씬(Practice, Stage_00 등)에서 작동하도록 수정
-        bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";
-
-        if (isPlayScene)
+        // 메뉴가 아닌 모든 씬(Play, Practice, Stage_00 등)에서 작동
+        if (SceneIds.IsPlayScene(SceneFlow.Current))
         {
             if (GameInput.KeyDown(KeyCode.Escape))
             {
@@ -66,38 +63,18 @@ public class GameManager : MonoBehaviour
     // 현재 스테이지 재시작 (다시하기 버튼용)
     public void RestartLevel()
     {
-        // 재시작 전에 반드시 시간을 정상화해야 함
-        Time.timeScale = 1f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        SceneFlow.Restart();
     }
 
-    // 다음 스테이지로 이동 (다음 스테이지 버튼용)
+    // 클리어 패널의 "다음" 버튼용. 갈 곳은 SceneFlow.Next가 현재 씬에 맞춰 정한다.
     public void NextStage()
     {
-        Time.timeScale = 1f;
-        // 현재 스테이지 인덱스를 가져와서 1 증가 (0이 Stage 1)
-        int currentStage = PlayerPrefs.GetInt("SelectedStage", 0);
-        PlayerPrefs.SetInt("SelectedStage", currentStage + 1);
-        PlayerPrefs.Save();
-        
-        // 현재 Play 씬을 다시 로드하면 TestMapLoader가 새로 바뀐 SelectedStage 값을 읽어 다음 맵을 생성함
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        SceneFlow.Next();
     }
 
-    // 메인(또는 스테이지 선택) 화면으로 이동
+    // 메인(스테이지 선택) 화면으로 이동
     public void GoToMain()
     {
-        Time.timeScale = 1f;
-        
-        // 쇼룸에서 들어온 경우 다시 쇼룸으로 돌려보내는 로직 (SceneController와 동일)
-        if (PlayerPrefs.GetInt("ReturnToShowroom", 0) == 1)
-        {
-            SceneManager.LoadScene("MuseumHub"); 
-        }
-        else
-        {
-            // 실제 씬 이름인 "main"으로 변경
-            SceneManager.LoadScene("main"); 
-        }
+        SceneFlow.ToMain();
     }
 }

@@ -11,7 +11,7 @@ public class StartSceneUI : MonoBehaviour
         // 1. 시작하기 버튼: 메인 씬(맵 선택)으로 이동
         SoundManager.Instance?.PlayCommandClick();
         Debug.Log("[StartSceneUI] 시작하기 클릭 -> main 씬으로 이동");
-        SceneManager.LoadScene("main");
+        SceneFlow.ToMain();
     }
 
     public void OnSettingsClicked()

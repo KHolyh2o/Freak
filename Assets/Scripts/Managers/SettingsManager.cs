@@ -13,6 +13,15 @@ public class SettingsManager : MonoBehaviour
     private const string PREF_SCREENMODE = "Settings_FullScreen";
     private const string PREF_AISUPPORT = "Settings_AISupport";
 
+    // 씬에 SettingsManager(setManager)가 없어도 항상 하나는 존재하도록 자동 생성한다.
+    // 씬에 이미 있는 것은 Awake의 Instance 검사로 중복 제거된다.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void EnsureExists()
+    {
+        if (Instance == null)
+            new GameObject("SettingsManager").AddComponent<SettingsManager>();
+    }
+
     private void Awake()
     {
         if (Instance == null)
@@ -44,10 +53,7 @@ public class SettingsManager : MonoBehaviour
         // 글로벌 ESC 키 감지 (플레이 씬 제외 - 플레이 씬은 GameManager가 담당)
         if (GameInput.KeyDown(KeyCode.Escape))
         {
-            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            bool isPlayScene = sceneName != "main" && sceneName != "Intro" && sceneName != "MuseumHub";
-            
-            if (!isPlayScene)
+            if (SceneIds.IsMenu(SceneFlow.Current))
             {
                 // 꺼져 있는 UI까지 찾아옴
                 SettingsUI[] uis = Resources.FindObjectsOfTypeAll<SettingsUI>();
@@ -76,7 +82,10 @@ public class SettingsManager : MonoBehaviour
         // 1. 볼륨 적용
         AudioListener.volume = masterVolume;
 
-        // 2. 화면 모드 적용
+        // 2. 화면 모드 적용 (해상도/창 모드는 PC 빌드 전용. 폰/Quest에서 강제하면 화면이 깨진다)
+#if !UNITY_STANDALONE && !UNITY_EDITOR
+        return;
+#endif
         if (isFullScreen)
         {
             // 강제로 1920x1080 (16:9) 해상도의 전용 전체화면 모드로 설정

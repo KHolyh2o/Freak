@@ -95,26 +95,16 @@ public class SettingsUI : MonoBehaviour
         {
             mainButton.onClick.AddListener(OnMainButtonClicked);
             AddHoverEffect(mainButton.gameObject);
-            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            
             // 오직 'main' 씬에서만 메인으로 가기 버튼을 숨깁니다.
-            if (sceneName == "main")
-                mainButton.gameObject.SetActive(false);
-            else
-                mainButton.gameObject.SetActive(true);
+            mainButton.gameObject.SetActive(SceneFlow.Current != SceneIds.Main);
         }
 
         if (quitButton != null)
         {
             quitButton.onClick.AddListener(OnQuitButtonClicked);
             AddHoverEffect(quitButton.gameObject);
-            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            
             // 오직 'main' 씬에서만 게임 종료 버튼을 보여줍니다.
-            if (sceneName == "main")
-                quitButton.gameObject.SetActive(true);
-            else
-                quitButton.gameObject.SetActive(false);
+            quitButton.gameObject.SetActive(SceneFlow.Current == SceneIds.Main);
         }
 
         UpdateButtonVisibility();
@@ -134,9 +124,7 @@ public class SettingsUI : MonoBehaviour
 
     public void UpdateButtonVisibility()
     {
-        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        
-        bool isStartOrMain = (sceneName == "Start" || sceneName == "main");
+        bool isStartOrMain = SceneIds.IsMenu(SceneFlow.Current);
 
         if (mainButton != null)
         {
@@ -224,10 +212,7 @@ public class SettingsUI : MonoBehaviour
         
         // Play 씬(Stage, Practice 등)에서는 Canvas가 계속 켜져 있어야 하므로 끄면 안 됨.
         // 하지만 Main 씬 등 비플레이 씬에서는 SettingsUI 전체(Canvas)를 꺼주어야 다음 ESC 입력 시 정상 작동함.
-        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        bool isPlayScene = sceneName != "main" && sceneName != "Start" && sceneName != "MuseumHub";
-
-        if (!isPlayScene)
+        if (SceneIds.IsMenu(SceneFlow.Current))
         {
             this.gameObject.SetActive(false);
         }
@@ -236,8 +221,7 @@ public class SettingsUI : MonoBehaviour
     private void OnMainButtonClicked()
     {
         SoundManager.Instance?.PlayCommandClick();
-        // 메인 씬으로 돌아가는 로직
-        // UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenuScene"); 
+        SceneFlow.ToMain();
     }
 
     private void OnQuitButtonClicked()

@@ -24,6 +24,12 @@ public class VRMapViewer : MonoBehaviour
     [Tooltip("기기의 머리 추적이 안정될 때까지 위치를 다시 맞추는 시간(초)")]
     public float settleTime = 2f;
 
+    [Header("UI 패널 (현실 기준, 미터) - VRCanvasAdapter가 읽는다")]
+    [Tooltip("머리에서 UI 패널까지의 거리. 멀리 두려면 늘리고, 크기가 같게 보이도록 가로 길이도 같이 키운다")]
+    public float uiDistance = 1.5f;
+    [Tooltip("UI 패널 가로 길이. 거리 대비 이 비율이 클수록 화면에서 크게 보인다(기본은 거리의 약 1.9배)")]
+    public float uiPanelWidth = 2.8f;
+
     [Header("따라오기")]
     [Tooltip("체크하면 내가 움직일 때 맵이 부드럽게 따라온다. 기본은 꺼짐(월드 고정이 멀미가 적음)")]
     public bool followHead = false;
@@ -81,6 +87,7 @@ public class VRMapViewer : MonoBehaviour
         _mapCenter = mapCenter;
         _hasMap = true;
         _settleLeft = settleTime;
+        Debug.Log($"[VRMapViewer] 맵 정렬: 배율 {_scale:F2}, 중심 {mapCenter}");
 
         UpdateHeadRef();
         Apply();

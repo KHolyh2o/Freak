@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit.UI;
 
 /// <summary>
@@ -12,7 +13,8 @@ using UnityEngine.XR.Interaction.Toolkit.UI;
 /// - 화면에 그리는 카메라/AudioListener/EventSystem은 XR 리그 것만 남기고 끈다
 ///   (RenderTexture로 그리는 미리보기 카메라는 건드리지 않는다).
 /// - 루트 캔버스 중 World Space가 아닌 것에는 VRCanvasAdapter를 자동으로 붙인다.
-///   처음부터 비활성인 캔버스나 런타임에 새로 생기는 캔버스는 변환되지 않는다.
+///   처음부터 비활성인 캔버스(설정창 등)도 포함하며, 켜질 때 변환된다. 런타임에 새로 생기는 캔버스는 변환되지 않는다.
+///   중첩 캔버스에는 TrackedDeviceGraphicRaycaster만 붙인다.
 /// </summary>
 public static class XRSceneBootstrap
 {
@@ -36,6 +38,9 @@ public static class XRSceneBootstrap
         if (!XRMode.Wanted) return;
 
         PlatformRigSwitcher.IsXR = true;
+
+        // 실제 헤드셋에서는 씬에 남아 있는 XR Device Simulator가 가짜 머리/컨트롤러를 만들어 진짜 컨트롤러를 가로챈다(Play 씬).
+        if (UnityEngine.XR.XRSettings.isDeviceActive) RemoveSimulators();
 
         if (VRMapViewer.Instance == null) SpawnRig();
         ConvertCanvases();
@@ -64,6 +69,13 @@ public static class XRSceneBootstrap
     }
 #endif
 
+    private static void RemoveSimulators()
+    {
+        var sims = Object.FindObjectsByType<UnityEngine.XR.Interaction.Toolkit.Inputs.Simulation.XRDeviceSimulator>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var sim in sims) Object.Destroy(sim.gameObject);
+        Debug.Log($"[XRSceneBootstrap] XR Device Simulator {sims.Length}개 제거 (씬: {SceneManager.GetActiveScene().name})");
+    }
+
     private static void SpawnRig()
     {
         var prefab = Resources.Load<GameObject>(RigResourcePath);
@@ -73,12 +85,27 @@ public static class XRSceneBootstrap
             return;
         }
 
-        var rig = Object.Instantiate(prefab);
+        // 레이 인터랙터는 켜질 때 그 시점의 EventSystem에 UI 입력 모듈을 등록한다.
+        // 씬의 기존 EventSystem이 살아 있으면 레이가 거기(나중에 꺼질 모듈)에 등록되어 UI를 못 맞추므로,
+        // 기존 것을 먼저 끄고 EventSystem_XR을 리그보다 먼저 켠 뒤 리그를 켠다.
+        DisableSceneEventSystems();
+
+        var holder = new GameObject("XR_Set_Holder");
+        holder.SetActive(false);
+        var rig = Object.Instantiate(prefab, holder.transform); // 비활성 부모 아래라 아직 OnEnable이 돌지 않는다
         rig.name = prefab.name;
 
         // 프리팹의 EventSystem_XR은 꺼진 상태로 저장되어 있으므로 여기서 켠다.
         foreach (var module in rig.GetComponentsInChildren<XRUIInputModule>(true))
-            module.gameObject.SetActive(true);
+        {
+            var esTransform = module.transform;
+            esTransform.SetParent(null);
+            esTransform.gameObject.SetActive(true);
+            esTransform.SetParent(rig.transform);
+        }
+
+        rig.transform.SetParent(null);
+        Object.Destroy(holder);
 
         // 화면에 그리는 건 XR 리그의 카메라 하나여야 한다.
         foreach (var cam in Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
@@ -90,21 +117,42 @@ public static class XRSceneBootstrap
         {
             if (!listener.transform.IsChildOf(rig.transform)) listener.enabled = false;
         }
-        foreach (var es in Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None))
-        {
-            if (es.transform.IsChildOf(rig.transform)) continue;
-            foreach (var module in es.GetComponents<BaseInputModule>()) module.enabled = false;
-            es.enabled = false;
-        }
+        DisableSceneEventSystems();
 
         Debug.Log("[XRSceneBootstrap] XR 리그를 자동 생성했습니다.");
     }
 
+    // XR 리그의 EventSystem_XR만 남기고 씬의 EventSystem은 모두 끈다.
+    private static void DisableSceneEventSystems()
+    {
+        foreach (var es in Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None))
+        {
+            if (es.GetComponent<XRUIInputModule>() != null) continue;
+            foreach (var module in es.GetComponents<BaseInputModule>()) module.enabled = false;
+            es.enabled = false;
+        }
+    }
+
     private static void ConvertCanvases()
     {
-        foreach (var canvas in Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        // 설정창처럼 꺼져 있다가 켜지는 캔버스도 포함한다(어댑터는 켜질 때 Start에서 변환한다).
+        // 꺼진 오브젝트는 isRootCanvas가 부정확하므로 부모 계층으로 루트 여부를 판단한다.
+        foreach (var canvas in Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (!canvas.isRootCanvas || canvas.renderMode == RenderMode.WorldSpace) continue;
+            // CanvasScaler가 붙은 캔버스는 다른 캔버스 안에 있어도 화면 전체용 UI(설정창 등)이므로 독립 패널로 변환한다.
+            // 드롭다운 목록 같은 작은 중첩 캔버스(CanvasScaler 없음)는 부모를 따라가게 둔다.
+            bool isRoot = canvas.transform.parent == null ||
+                          canvas.transform.parent.GetComponentInParent<Canvas>(true) == null ||
+                          canvas.GetComponent<CanvasScaler>() != null;
+            Debug.Log($"[XRSceneBootstrap] 캔버스 '{canvas.name}' 루트={isRoot} 모드={canvas.renderMode} 활성={canvas.gameObject.activeInHierarchy} 씬={canvas.gameObject.scene.name}");
+            if (!isRoot)
+            {
+                // 중첩 캔버스는 자기 그래픽을 자기 레이캐스터로만 맞출 수 있다.
+                if (canvas.GetComponent<TrackedDeviceGraphicRaycaster>() == null)
+                    canvas.gameObject.AddComponent<TrackedDeviceGraphicRaycaster>();
+                continue;
+            }
+            if (canvas.renderMode == RenderMode.WorldSpace) continue;
             if (canvas.GetComponent<VRCanvasAdapter>() != null) continue;
             canvas.gameObject.AddComponent<VRCanvasAdapter>();
         }

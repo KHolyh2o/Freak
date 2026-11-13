@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit.UI;
@@ -14,18 +15,20 @@ using UnityEngine.XR.Interaction.Toolkit.UI;
 [RequireComponent(typeof(Canvas))]
 public class VRCanvasAdapter : MonoBehaviour
 {
-    [Header("패널 크기/위치 (현실 기준, 미터)")]
-    [Tooltip("패널 가로 길이")]
-    public float panelWidth = 1.5f;
-    [Tooltip("머리에서 앞쪽으로 떨어진 거리")]
-    public float distance = 0.8f;
+    // 패널 거리/가로 길이는 XR_Set 프리팹의 VRMapViewer(uiDistance, uiPanelWidth)에서 조절한다.
+    [Header("패널 위치 (현실 기준, 미터)")]
     [Tooltip("시선 중앙보다 아래로 내릴 높이(음수면 위). 0이 아니면 아래쪽 버튼이 시야 밖으로 잘릴 수 있다")]
     public float below = 0f;
 
     [Tooltip("체크하면 UI를 항상 맵보다 앞에 그린다(맵이 UI를 뚫고 나오지 않음)")]
     public bool alwaysOnTop = true;
 
+    [Tooltip("플레이 중 패널 중심을 시선보다 아래로 기울이는 각도(도). 위쪽 UI가 잘려 보이면 키운다")]
+    public float pitchDown = 10f;
+
     [Header("VR 배치 보정 (캔버스 좌표 단위, 800x450 기준)")]
+    [Tooltip("VR 패널의 가로:세로 비율. 화면에 꽉 차게 늘어나는 UI가 위아래로 길어지지 않도록 이 비율로 고정한다")]
+    public float vrAspect = 16f / 9f;
     [Tooltip("아래쪽 버튼 그룹을 옮길 양. 음수면 더 아래로 내려가 시야 아래쪽에 자리잡는다")]
     public float bottomGroupOffsetY = -40f;
     [Tooltip("아래쪽 그룹에 속하는 UI의 캔버스 기준 경로. 없는 경로는 무시한다(메뉴 캔버스 등)")]
@@ -34,6 +37,8 @@ public class VRCanvasAdapter : MonoBehaviour
     public string[] hideInVRPaths = { "gradation" };
 
     [Header("따라오기")]
+    [Tooltip("체크하면 메뉴 씬(Intro/Start/main)에서도 시선을 따라온다. 기본은 꺼짐: 메뉴는 처음 바라본 정면에 고정")]
+    public bool followInMenuScenes = false;
     [Tooltip("0이면 패널이 시선에 딱 붙어 항상 같은 위치로 보인다(고개를 기울여도 같이 기울어짐). 0보다 크면 그 속도로 부드럽게 따라온다")]
     public float followSpeed = 0f;
     [Tooltip("followSpeed가 0보다 클 때만 사용. 시선이 이 각도(도) 안에서 움직이면 패널은 가만히 있는다")]
@@ -46,6 +51,9 @@ public class VRCanvasAdapter : MonoBehaviour
     private Vector3 _dir;      // XR Origin 기준, 머리에서 패널 쪽을 향하는 방향
     private float _snapLeft;   // 기기 추적이 안정될 때까지는 즉시 맞춘다
     private bool _ready;
+    private bool _followHead;  // false면(메뉴 씬) 기기 추적이 안정된 뒤의 정면에 고정
+    private Vector3 _fixedHead;
+    private Vector2 _size;
 
     IEnumerator Start()
     {
@@ -53,6 +61,9 @@ public class VRCanvasAdapter : MonoBehaviour
 
         // 캔버스 크기가 첫 프레임에 확정되므로 한 프레임 기다린다.
         yield return null;
+
+        // 씬 이동 전에 소속 씬을 알아 둔다(아래에서 XR Origin의 자식이 된다).
+        _followHead = followInMenuScenes || !SceneIds.IsMenu(gameObject.scene.name);
 
         _viewer = VRMapViewer.Instance;
         if (_viewer == null)
@@ -67,14 +78,20 @@ public class VRCanvasAdapter : MonoBehaviour
         Vector2 size = _rt.rect.size;
         if (size.x < 1f || size.y < 1f) size = new Vector2(1920f, 1080f);
 
+        // 헤드셋 화면은 거의 정사각형이라 캔버스 높이가 데스크톱(16:9)보다 훨씬 커진다. 화면에 꽉 차게 늘어나도록
+        // 만든 UI(AI 팝업 등)가 위아래로 길어지므로, 가로는 그대로 두고 높이를 16:9로 고정한다.
+        size.y = size.x / vrAspect;
+
         _canvas.renderMode = RenderMode.WorldSpace;
         _canvas.worldCamera = Camera.main;
+        Debug.Log($"[VRCanvasAdapter] '{name}' 월드 스페이스로 변환 (크기 {size}, 카메라 {(Camera.main != null ? Camera.main.name : "없음")})");
 
         _rt.SetParent(_viewer.transform, false);
         _rt.anchorMin = _rt.anchorMax = new Vector2(0.5f, 0.5f);
         _rt.pivot = new Vector2(0.5f, 0.5f);
         _rt.sizeDelta = size;
-        _rt.localScale = Vector3.one * (panelWidth / size.x);
+        _size = size;
+        _rt.localScale = Vector3.one * (_viewer.uiPanelWidth / size.x);
 
         if (GetComponent<TrackedDeviceGraphicRaycaster>() == null)
             gameObject.AddComponent<TrackedDeviceGraphicRaycaster>();
@@ -82,9 +99,23 @@ public class VRCanvasAdapter : MonoBehaviour
         ApplyLayoutOffsets();
         if (alwaysOnTop) DrawOnTop();
 
+        // 슬롯처럼 나중에 생기는 버튼도 있어서 주기적으로 반복한다.
+        AddHoverScale();
+        InvokeRepeating(nameof(AddHoverScale), 1f, 1f);
+
         _snapLeft = 2f;
         _ready = true;
         Place();
+    }
+
+    // 레이를 올린 버튼이 살짝 커지게 한다. 자체 호버 효과(EventTrigger)가 있는 버튼은 서로 겹치지 않게 건너뛴다.
+    private void AddHoverScale()
+    {
+        foreach (var button in GetComponentsInChildren<Button>(true))
+        {
+            if (button.GetComponent<VRHoverScale>() != null || button.GetComponent<EventTrigger>() != null) continue;
+            button.gameObject.AddComponent<VRHoverScale>();
+        }
     }
 
     // 맵(3D)이 UI보다 가까운 부분에서 UI를 뚫고 나오지 않도록, UI의 깊이 검사를 꺼서 항상 맨 위에 그린다.
@@ -156,6 +187,23 @@ public class VRCanvasAdapter : MonoBehaviour
         Vector3 head = origin.InverseTransformPoint(_cam.transform.position);
         Vector3 forward = origin.InverseTransformDirection(_cam.transform.forward);
 
+        if (!_followHead)
+        {
+            // 메뉴: 추적이 안정될 때까지만 정면을 맞추고, 그 뒤로는 그 자리에 고정한다.
+            if (_snapLeft > 0f)
+            {
+                _snapLeft -= Time.unscaledDeltaTime;
+                Vector3 flat = Vector3.ProjectOnPlane(forward, Vector3.up);
+                _dir = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.forward;
+                _fixedHead = head;
+            }
+            Vector3 fixedPos = _fixedHead + _dir * _viewer.uiDistance - Vector3.up * below;
+            _rt.localScale = Vector3.one * (_viewer.uiPanelWidth / _size.x);
+            _rt.localPosition = fixedPos;
+            _rt.localRotation = Quaternion.LookRotation(_dir, Vector3.up);
+            return;
+        }
+
         if (_snapLeft > 0f || followSpeed <= 0f)
         {
             _snapLeft -= Time.unscaledDeltaTime;
@@ -171,7 +219,15 @@ public class VRCanvasAdapter : MonoBehaviour
         // 시선에 딱 붙는 모드에서는 머리의 위쪽 방향을 그대로 써서, 고개를 기울여도 화면에서 같은 위치/각도로 보이게 한다.
         Vector3 up = followSpeed <= 0f ? origin.InverseTransformDirection(_cam.transform.up) : Vector3.up;
 
-        Vector3 pos = head + _dir.normalized * distance - up * below;
+        // 인스펙터에서 값을 바꿔도 바로 반영되도록 매 프레임 크기를 맞춘다.
+        _rt.localScale = Vector3.one * (_viewer.uiPanelWidth / _size.x);
+
+        // 헤드셋은 위쪽 시야가 좁고 착용 위치에 따라 위가 잘리므로, 패널 중심을 시선보다 살짝 아래로 내린다.
+        Vector3 dir = _dir.normalized;
+        Vector3 right = Vector3.Cross(up, dir);
+        if (right.sqrMagnitude > 0.0001f) dir = Quaternion.AngleAxis(pitchDown, right.normalized) * dir;
+
+        Vector3 pos = head + dir * _viewer.uiDistance - up * below;
         _rt.localPosition = pos;
         // 사용자를 바라보도록(캔버스의 앞면이 사용자 쪽) 회전
         _rt.localRotation = Quaternion.LookRotation(pos - head, up);

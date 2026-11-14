@@ -38,11 +38,14 @@ public class VRCanvasAdapter : MonoBehaviour
 
     [Header("따라오기")]
     [Tooltip("체크하면 메뉴 씬(Intro/Start/main)에서도 시선을 따라온다. 기본은 꺼짐: 메뉴는 처음 바라본 정면에 고정")]
-    public bool followInMenuScenes = false;
+    public bool followInMenuScenes = true;
     [Tooltip("0이면 패널이 시선에 딱 붙어 항상 같은 위치로 보인다(고개를 기울여도 같이 기울어짐). 0보다 크면 그 속도로 부드럽게 따라온다")]
     public float followSpeed = 0f;
     [Tooltip("followSpeed가 0보다 클 때만 사용. 시선이 이 각도(도) 안에서 움직이면 패널은 가만히 있는다")]
     public float deadZoneAngle = 8f;
+
+    [Tooltip("메뉴 씬에서 설정창(SettingsUI)이 든 캔버스를 사용자 쪽으로 당기는 거리(미터). 메뉴 캔버스와 같은 평면에 겹쳐 레이가 뒤쪽 패널에 맞는 것을 막는다. 0이면 끈다")]
+    public float menuPopupNudge = 0.05f;
 
     private Canvas _canvas;
     private RectTransform _rt;
@@ -54,6 +57,9 @@ public class VRCanvasAdapter : MonoBehaviour
     private bool _followHead;  // false면(메뉴 씬) 기기 추적이 안정된 뒤의 정면에 고정
     private Vector3 _fixedHead;
     private Vector2 _size;
+    private float _depthNudge; // 메뉴 씬에서 설정창 캔버스를 메뉴 캔버스 앞으로 당기는 거리(미터)
+    private SettingsUI _settingsUI;     // 진단용: 설정창이 열리는 순간을 감지한다
+    private bool _settingsWasOn;
 
     IEnumerator Start()
     {
@@ -64,6 +70,8 @@ public class VRCanvasAdapter : MonoBehaviour
 
         // 씬 이동 전에 소속 씬을 알아 둔다(아래에서 XR Origin의 자식이 된다).
         _followHead = followInMenuScenes || !SceneIds.IsMenu(gameObject.scene.name);
+        _settingsUI = GetComponentInChildren<SettingsUI>(true);
+        _depthNudge = _settingsUI != null ? menuPopupNudge : 0f;
 
         _viewer = VRMapViewer.Instance;
         if (_viewer == null)
@@ -174,7 +182,67 @@ public class VRCanvasAdapter : MonoBehaviour
 
     void LateUpdate()
     {
+        if (_ready) EnsureWorldSpace();
         if (_ready) Place();
+
+        if (_settingsUI != null)
+        {
+            bool on = _settingsUI.gameObject.activeInHierarchy;
+            if (on && !_settingsWasOn) LogDiagnostics();
+            _settingsWasOn = on;
+        }
+    }
+
+    // 변환한 뒤 누군가(원인 미상) 캔버스를 다시 화면 고정(Overlay)으로 돌리면, VR에서는 눈마다 평면으로 그려져
+    // 초점이 안 맞고 두 개로 보인다. 되돌려진 것을 감지하면 월드 스페이스와 크기를 다시 맞춘다.
+    private void EnsureWorldSpace()
+    {
+        if (_canvas.renderMode == RenderMode.WorldSpace) return;
+
+        Debug.LogWarning($"[VRCanvasAdapter] '{name}' 렌더 모드가 {_canvas.renderMode}(으)로 되돌아가 있어 월드 스페이스로 다시 바꿉니다 (씬={gameObject.scene.name}, 프레임={Time.frameCount}, 크기={_rt.rect.size})");
+        _canvas.renderMode = RenderMode.WorldSpace;
+        _canvas.worldCamera = Camera.main;
+        _rt.anchorMin = _rt.anchorMax = new Vector2(0.5f, 0.5f);
+        _rt.pivot = new Vector2(0.5f, 0.5f);
+        _rt.sizeDelta = _size;
+    }
+
+    // 설정창이 열린 순간의 캔버스/카메라 상태를 로그로 남긴다(VR에서 설정창이 이상하게 보이는 원인 조사용).
+    private void LogDiagnostics()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"[VRCanvasDiag] 설정창 열림 씬={gameObject.scene.name} 따라오기={_followHead} 당김={_depthNudge}");
+
+        Camera cam = _viewer != null ? _viewer.GetComponentInChildren<Camera>() : null;
+        sb.AppendLine($"[VRCanvasDiag] 카메라={(cam != null ? cam.name : "없음")} 위치={(cam != null ? cam.transform.position.ToString("F2") : "-")} Camera.main={(Camera.main != null ? Camera.main.name : "없음")} 켜진 카메라 수={Camera.allCamerasCount}");
+
+        foreach (var canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        {
+            var rt = (RectTransform)canvas.transform;
+            float dist = cam != null ? Vector3.Distance(cam.transform.position, rt.position) : -1f;
+            int activeChildren = 0;
+            var names = new System.Text.StringBuilder();
+            foreach (Transform child in canvas.transform)
+            {
+                if (!child.gameObject.activeSelf) continue;
+                activeChildren++;
+                names.Append(child.name).Append(',');
+            }
+            sb.AppendLine($"[VRCanvasDiag] 캔버스 '{canvas.name}' 모드={canvas.renderMode} 부모={(canvas.transform.parent != null ? canvas.transform.parent.name : "없음")} " +
+                          $"월드위치={rt.position.ToString("F2")} 카메라까지={dist:F2}m 월드가로={rt.rect.width * rt.lossyScale.x:F2}m " +
+                          $"크기={rt.rect.size} 정렬={canvas.sortingOrder} 켜진자식={activeChildren}[{names}]");
+        }
+
+        var panel = _settingsUI.settingsPanel != null ? (RectTransform)_settingsUI.settingsPanel.transform : null;
+        if (panel != null)
+        {
+            var corners = new Vector3[4];
+            panel.GetWorldCorners(corners);
+            float d = cam != null ? Vector3.Distance(cam.transform.position, panel.position) : -1f;
+            sb.AppendLine($"[VRCanvasDiag] 설정패널 카메라까지={d:F2}m 월드가로={Vector3.Distance(corners[0], corners[3]):F2}m 월드높이={Vector3.Distance(corners[0], corners[1]):F2}m 로컬z={panel.localPosition.z:F2}");
+        }
+
+        Debug.Log(sb.ToString());
     }
 
     private void Place()
@@ -197,8 +265,10 @@ public class VRCanvasAdapter : MonoBehaviour
                 _dir = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.forward;
                 _fixedHead = head;
             }
-            Vector3 fixedPos = _fixedHead + _dir * _viewer.uiDistance - Vector3.up * below;
-            _rt.localScale = Vector3.one * (_viewer.uiPanelWidth / _size.x);
+            float dist = _viewer.uiDistance - _depthNudge;
+            Vector3 fixedPos = _fixedHead + _dir * dist - Vector3.up * below;
+            // 가까워진 만큼 작게 해서 화면에서 보이는 크기는 메뉴 캔버스와 같게 유지한다.
+            _rt.localScale = Vector3.one * (_viewer.uiPanelWidth / _size.x) * (dist / _viewer.uiDistance);
             _rt.localPosition = fixedPos;
             _rt.localRotation = Quaternion.LookRotation(_dir, Vector3.up);
             return;
@@ -220,14 +290,15 @@ public class VRCanvasAdapter : MonoBehaviour
         Vector3 up = followSpeed <= 0f ? origin.InverseTransformDirection(_cam.transform.up) : Vector3.up;
 
         // 인스펙터에서 값을 바꿔도 바로 반영되도록 매 프레임 크기를 맞춘다.
-        _rt.localScale = Vector3.one * (_viewer.uiPanelWidth / _size.x);
+        float followDist = _viewer.uiDistance - _depthNudge;
+        _rt.localScale = Vector3.one * (_viewer.uiPanelWidth / _size.x) * (followDist / _viewer.uiDistance);
 
         // 헤드셋은 위쪽 시야가 좁고 착용 위치에 따라 위가 잘리므로, 패널 중심을 시선보다 살짝 아래로 내린다.
         Vector3 dir = _dir.normalized;
         Vector3 right = Vector3.Cross(up, dir);
         if (right.sqrMagnitude > 0.0001f) dir = Quaternion.AngleAxis(pitchDown, right.normalized) * dir;
 
-        Vector3 pos = head + dir * _viewer.uiDistance - up * below;
+        Vector3 pos = head + dir * followDist - up * below;
         _rt.localPosition = pos;
         // 사용자를 바라보도록(캔버스의 앞면이 사용자 쪽) 회전
         _rt.localRotation = Quaternion.LookRotation(pos - head, up);

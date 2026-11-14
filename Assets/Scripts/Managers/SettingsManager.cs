@@ -53,7 +53,8 @@ public class SettingsManager : MonoBehaviour
         // 글로벌 ESC 키 감지 (플레이 씬 제외 - 플레이 씬은 GameManager가 담당)
         if (GameInput.KeyDown(KeyCode.Escape))
         {
-            if (SceneIds.IsMenu(SceneFlow.Current))
+            // VR의 메뉴 씬에서는 설정창을 쓰지 않는다(왼손 메뉴 버튼이 Esc로 연결돼 있어 막아 둔다).
+            if (SceneIds.IsMenu(SceneFlow.Current) && !PlatformRigSwitcher.IsXR)
             {
                 // 꺼져 있는 UI까지 찾아옴
                 SettingsUI[] uis = Resources.FindObjectsOfTypeAll<SettingsUI>();

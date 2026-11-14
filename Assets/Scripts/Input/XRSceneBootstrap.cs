@@ -43,6 +43,7 @@ public static class XRSceneBootstrap
         if (UnityEngine.XR.XRSettings.isDeviceActive) RemoveSimulators();
 
         if (VRMapViewer.Instance == null) SpawnRig();
+        VRMenuTrim.Apply(); // 메뉴 씬의 설정 버튼 제거(변환 전에 해서 변환된 패널에 반영되게 한다)
         ConvertCanvases();
 #if UNITY_EDITOR
         SpawnSimulatorIfNeeded();
